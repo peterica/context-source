@@ -47,6 +47,13 @@ export {
   type SubgraphResult,
   type SubgraphDirection,
 } from './query/subgraph.js';
+export {
+  getProjectStats,
+  listInferredRelationships,
+  type ProjectStats,
+  type InferredRelationshipItem,
+  type ListInferredRelationshipsResult,
+} from './query/stats.js';
 
 export { runFullAnalysis, type RunFullAnalysisOptions } from './orchestrator.js';
 

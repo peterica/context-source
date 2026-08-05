@@ -1,0 +1,86 @@
+import { useEffect, useState } from 'react';
+import type { Relationship, Entity } from '@contextsource/core';
+import { api } from '../api/client.js';
+
+interface Item {
+  relationship: Relationship;
+  source: Entity;
+  target: Entity;
+}
+
+export function Review(props: { refreshKey: number; onSelectEntity: (id: string) => void }) {
+  const [items, setItems] = useState<Item[]>([]);
+  const [total, setTotal] = useState(0);
+  const [offset, setOffset] = useState(0);
+  const limit = 25;
+
+  useEffect(() => {
+    api
+      .listInferredRelationships(limit, offset)
+      .then((res) => {
+        setItems(res.items);
+        setTotal(res.total);
+      })
+      .catch((e) => console.error(e));
+  }, [offset, props.refreshKey]);
+
+  return (
+    <div>
+      <h2 className="section-title">확인이 필요한 항목 — Inferred 관계 검토 ({total}건)</h2>
+      <p style={{ fontSize: 12, color: 'var(--text-dim)', maxWidth: 640 }}>
+        정적으로 완전히 확정되지 않아 <span className="badge inferred">inferred</span>로 기록된 관계입니다.
+        confidence가 낮은 순으로 정렬되어 있습니다 (NFR-5 — static은 항상 false positive 0%를 목표로 하며,
+        불확실한 관계는 이곳에서 사람이 검토합니다).
+      </p>
+      <div className="panel">
+        {items.length === 0 && <div className="empty">검토할 inferred 관계가 없습니다.</div>}
+        {items.length > 0 && (
+          <table className="list">
+            <thead>
+              <tr>
+                <th>Source</th>
+                <th>Type</th>
+                <th>Target</th>
+                <th>Confidence</th>
+                <th>근거 위치</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item.relationship.id}>
+                  <td>
+                    <a onClick={() => props.onSelectEntity(item.source.id)} style={{ cursor: 'pointer' }}>
+                      {item.source.name}
+                    </a>
+                  </td>
+                  <td>{item.relationship.type}</td>
+                  <td>
+                    <a onClick={() => props.onSelectEntity(item.target.id)} style={{ cursor: 'pointer' }}>
+                      {item.target.name}
+                    </a>
+                  </td>
+                  <td>{item.relationship.confidence.toFixed(2)}</td>
+                  <td>
+                    {item.relationship.evidence[0]?.filePath}:{item.relationship.evidence[0]?.range.startLine}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+      <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
+        <button className="btn secondary" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - limit))}>
+          이전
+        </button>
+        <button
+          className="btn secondary"
+          disabled={offset + limit >= total}
+          onClick={() => setOffset(offset + limit)}
+        >
+          다음
+        </button>
+      </div>
+    </div>
+  );
+}

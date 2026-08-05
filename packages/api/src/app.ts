@@ -3,6 +3,7 @@ import {
   getEntity,
   getLastCompletedRun,
   getProject,
+  getProjectStats,
   getRelationshipCounts,
   getRun,
   getSubgraph,
@@ -10,6 +11,7 @@ import {
   listCallees,
   listCallers,
   listConnectedRelationships,
+  listInferredRelationships,
   listRuns,
   runFullAnalysis,
   runIncrementalAnalysis,
@@ -220,6 +222,29 @@ export function createApp(ctx: AppContext): Express {
       };
       const lastRun = getLastCompletedRun(ctx.db, ctx.projectId) ?? null;
       res.json({ project, lastRun });
+    }),
+  );
+
+  // 보조 endpoint (API.md에 없는 구현 확장) — Web UI Overview/검토 화면 전용 집계·목록.
+  // 전체 그래프를 내려주지 않고 개수·페이지네이션된 review 목록만 제공해 Query-first 원칙을 지킨다.
+  router.get(
+    '/project/stats',
+    asyncHandler((_req, res) => {
+      res.json(getProjectStats(ctx.db, ctx.projectId));
+    }),
+  );
+
+  router.get(
+    '/project/inferred-relationships',
+    asyncHandler((req, res) => {
+      res.json(
+        listInferredRelationships(
+          ctx.db,
+          ctx.projectId,
+          parseLimit(req.query.limit),
+          parseOffset(req.query.offset),
+        ),
+      );
     }),
   );
 

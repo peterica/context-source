@@ -1,0 +1,37 @@
+# ROADMAP.md 로컬 개발 환경: 서비스는 api/ui 두 개뿐이다.
+# SQLite는 별도 서비스가 아니라 api 컨테이너에 임베디드된 파일 DB이며,
+# 분석 대상 저장소는 api 컨테이너에 read-only로 마운트한다.
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - '8080:8080'
+    environment:
+      CONTEXTSOURCE_DB: /app/data/contextsource.sqlite
+      CONTEXTSOURCE_PROJECT_ID: ${PROJECT_ID:-demo}
+      CONTEXTSOURCE_PROJECT_NAME: ${PROJECT_NAME:-Demo Project}
+      CONTEXTSOURCE_ROOT_PATH: /workspace
+      CONTEXTSOURCE_TSCONFIG: /workspace/${TSCONFIG_PATH:-tsconfig.json}
+      PORT: 8080
+    volumes:
+      - contextsource-data:/app/data
+      # 분석 대상 저장소 — 기본값은 저장소에 포함된 샘플 프로젝트. 실제 사용 시
+      # `ANALYZE_TARGET=/path/to/your/project docker compose up --build`로 덮어쓴다.
+      - ${ANALYZE_TARGET:-./samples/demo-project}:/workspace:ro
+
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.ui
+    ports:
+      - '5173:3000'
+    environment:
+      CONTEXTSOURCE_API_URL: http://api:8080
+      PORT: 3000
+    depends_on:
+      - api
+
+volumes:
+  contextsource-data:

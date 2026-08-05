@@ -1,0 +1,25 @@
+# ui 서비스 — Web UI 정적 빌드 + /api 리버스 프록시.
+FROM node:22-slim AS build
+WORKDIR /app
+
+COPY package.json package-lock.json tsconfig.base.json ./
+COPY packages/core/package.json packages/core/package.json
+COPY packages/web/package.json packages/web/package.json
+COPY packages/cli/package.json packages/cli/package.json
+COPY packages/api/package.json packages/api/package.json
+COPY packages/mcp/package.json packages/mcp/package.json
+RUN npm ci
+
+COPY packages/core packages/core
+COPY packages/web packages/web
+RUN npm run build -w @contextsource/core \
+ && npm run build -w @contextsource/web
+
+FROM node:22-slim
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=build /app/packages/web/dist packages/web/dist
+COPY --from=build /app/packages/web/server.mjs packages/web/server.mjs
+
+EXPOSE 3000
+CMD ["node", "packages/web/server.mjs"]

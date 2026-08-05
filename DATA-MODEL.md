@@ -3,6 +3,7 @@
 - **문서 버전**: 0.1 (Draft)
 - **근거 문서**: [PRD.md](./PRD.md) 4장(도메인 모델), 10장(OQ 결정)
 - **저장소**: SQLite 단일 파일, api 서비스가 단독 소유 (OQ-1, C7 결정)
+- **구현 상태**: 아래 DDL은 `packages/core/src/storage/schema.ts`에 그대로 적용되어 있다(문자 그대로 동일). 드라이버는 `better-sqlite3`가 아니라 Node.js 내장 `node:sqlite`이며, deferred FK 동작을 포함해 이 문서의 설계를 그대로 만족함을 테스트로 검증했다 (ADR-0001, `packages/core/test/schema-integrity.test.ts`).
 
 이 문서는 PRD에 확정된 도메인 모델을 그대로 스키마로 옮긴 것이다. PRD에 없는 개념을 추가하지 않는다.
 

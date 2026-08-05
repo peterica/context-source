@@ -166,6 +166,24 @@ GET /project
 
 - 응답: `{ "project": { "id", "name", "rootPath" }, "lastRun": { ...2.6 응답 요약 } }`
 
+### 2.8 구현 확장 — Web UI 전용 집계/검토 endpoint (claude-do.md M4)
+
+이 문서 초안에는 없었으나, M4 Web UI의 "Entity/Relationship/Evidence 통계"와 "분석 실패 및 inferred 관계 검토" 화면을 구현하기 위해 추가한 보조 endpoint다. 둘 다 읽기 전용이며 전체 그래프를 내려주지 않는다(Query-first, FR-AI1 원칙 유지) — 개수 집계이거나 페이지네이션된 목록이다.
+
+```
+GET /project/stats
+```
+
+- 응답: `{ "entities": { "total", "byKind": {...} }, "relationships": { "total", "byType": {...}, "byResolution": {...} }, "evidence": { "total" } }`
+
+```
+GET /project/inferred-relationships?limit=&offset=
+```
+
+- `resolution=inferred`인 관계를 confidence 오름차순으로 페이지네이션하여 반환한다 (검토 우선순위).
+- 응답: `{ "items": [ { "relationship": Relationship, "source": Entity, "target": Entity } ], "total": N }`
+- `limit`/`offset` 한도는 1.3절과 동일(기본 50, 최대 200).
+
 ---
 
 ## 3. MCP Tools — FR-Q7, FR-AI1, FR-AI3

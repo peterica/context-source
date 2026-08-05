@@ -2,7 +2,7 @@
 
 - **문서 버전**: 0.1 (Draft)
 - **작성일**: 2026-08-01
-- **상태**: 검토 중
+- **상태**: MVP(Phase 1, M1~M5) 구현 완료 — FR별 구현 상태와 알려진 제한사항은 [IMPLEMENTATION_REPORT.md](./IMPLEMENTATION_REPORT.md) 참고
 - **관련 문서**: [INIT.md](./INIT.md)
 
 ---

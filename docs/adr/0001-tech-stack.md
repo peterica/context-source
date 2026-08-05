@@ -28,7 +28,7 @@
 
 ## 컨테이너 구성
 
-ROADMAP.md 결정을 그대로 따른다: Docker Compose 서비스는 `api`(analyzer 내부 모듈 포함, SQLite 단독 소유, 분석 대상 저장소를 read-only 볼륨 마운트)와 `ui` 두 개뿐이다. SQLite는 별도 서비스가 아니다. MCP 서버는 컨테이너 서비스가 아니라 로컬 stdio 프로세스로 실행한다(AI 클라이언트가 로컬에서 기동하는 것이 표준 MCP 연동 방식이며, `docker compose exec api node packages/mcp/dist/index.js` 형태로도 구동 가능하게 한다).
+ROADMAP.md 결정을 그대로 따른다: Docker Compose 서비스는 `api`(analyzer 내부 모듈 포함, SQLite 단독 소유, 분석 대상 저장소를 read-only 볼륨 마운트)와 `ui` 두 개뿐이다. SQLite는 별도 서비스가 아니다. MCP 서버는 컨테이너 서비스가 아니라 로컬 stdio 프로세스로 실행한다 — AI 클라이언트(Claude Desktop 등)가 로컬에서 `node packages/mcp/dist/index.js`를 기동해 api와 동일한 SQLite 파일을 읽기 전용으로 여는 것이 표준 MCP 연동 방식이다. `docker compose up`으로 만든 named volume(`contextsource-data`) 안의 DB 파일을 MCP가 직접 읽게 하려면 볼륨 마운트 경로를 로컬 `--db` 인자와 맞춰 구성한다.
 
 ## 대안 검토
 

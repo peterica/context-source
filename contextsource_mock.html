@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ContextSource — Project Overview Mock</title>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --panel-2: #f8fafc;
+      --line: #e5e9ef;
+      --text: #172033;
+      --muted: #667085;
+      --primary: #4f46e5;
+      --primary-soft: #eef2ff;
+      --success: #159455;
+      --success-soft: #ecfdf3;
+      --warning: #d97706;
+      --warning-soft: #fff7ed;
+      --danger: #dc2626;
+      --danger-soft: #fef2f2;
+      --shadow: 0 12px 28px rgba(16, 24, 40, 0.08);
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    button, input { font: inherit; }
+
+    .app {
+      display: grid;
+      grid-template-columns: 240px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      background: #111827;
+      color: #fff;
+      padding: 22px 16px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 800;
+      font-size: 19px;
+      margin-bottom: 28px;
+      padding: 0 8px;
+    }
+
+    .brand-mark {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      display: grid;
+      place-items: center;
+      box-shadow: 0 8px 20px rgba(79, 70, 229, .35);
+    }
+
+    .nav-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: #8c96a8;
+      margin: 22px 10px 8px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 11px 12px;
+      color: #cbd5e1;
+      border-radius: 10px;
+      text-decoration: none;
+      margin-bottom: 4px;
+      cursor: pointer;
+    }
+
+    .nav-item:hover,
+    .nav-item.active {
+      background: #243044;
+      color: #fff;
+    }
+
+    .nav-icon {
+      width: 20px;
+      text-align: center;
+      opacity: .9;
+    }
+
+    .sidebar-bottom {
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      bottom: 18px;
+      padding: 13px;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      color: #cbd5e1;
+      font-size: 13px;
+    }
+
+    .main { min-width: 0; }
+
+    .topbar {
+      height: 68px;
+      background: rgba(255,255,255,.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .search {
+      width: min(460px, 50vw);
+      position: relative;
+    }
+
+    .search input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 14px 10px 38px;
+      background: #f8fafc;
+      outline: none;
+    }
+
+    .search span {
+      position: absolute;
+      left: 13px;
+      top: 9px;
+      color: var(--muted);
+    }
+
+    .top-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .btn {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 10px;
+      padding: 9px 13px;
+      cursor: pointer;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .btn.primary {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+
+    .content {
+      padding: 28px;
+      max-width: 1480px;
+      margin: 0 auto;
+    }
+
+    .breadcrumb {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+
+    .hero {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      align-items: flex-start;
+      margin-bottom: 22px;
+    }
+
+    .hero h1 {
+      font-size: 28px;
+      margin: 0 0 8px;
+    }
+
+    .repo-line {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--success-soft);
+      color: var(--success);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 6px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      padding: 6px;
+      margin-bottom: 22px;
+      overflow-x: auto;
+    }
+
+    .tab {
+      border: 0;
+      background: transparent;
+      padding: 9px 14px;
+      border-radius: 9px;
+      color: var(--muted);
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .tab.active {
+      background: var(--primary-soft);
+      color: var(--primary);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px;
+      min-width: 0;
+    }
+
+    .span-3 { grid-column: span 3; }
+    .span-4 { grid-column: span 4; }
+    .span-5 { grid-column: span 5; }
+    .span-7 { grid-column: span 7; }
+    .span-8 { grid-column: span 8; }
+    .span-12 { grid-column: span 12; }
+
+    .card-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .card-title h2 {
+      font-size: 16px;
+      margin: 0;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .metric {
+      font-size: 30px;
+      font-weight: 800;
+      letter-spacing: -.02em;
+      margin-bottom: 6px;
+    }
+
+    .metric-sub {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .trend {
+      margin-top: 13px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .trend.good { color: var(--success); }
+    .trend.warn { color: var(--warning); }
+
+    .progress {
+      height: 8px;
+      background: #eef2f6;
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 14px;
+    }
+
+    .progress > div {
+      height: 100%;
+      border-radius: inherit;
+      background: var(--primary);
+    }
+
+    .issue-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .issue {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 13px;
+      border-radius: 11px;
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      cursor: pointer;
+    }
+
+    .issue-main {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .issue-badge {
+      min-width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      font-size: 12px;
+    }
+
+    .issue-badge.warn { background: var(--warning-soft); color: var(--warning); }
+    .issue-badge.info { background: var(--primary-soft); color: var(--primary); }
+    .issue-badge.danger { background: var(--danger-soft); color: var(--danger); }
+
+    .issue-title {
+      font-weight: 750;
+      font-size: 13px;
+    }
+
+    .issue-desc {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 3px;
+    }
+
+    .graph {
+      height: 355px;
+      border-radius: 14px;
+      background:
+        radial-gradient(circle at 20% 20%, rgba(99,102,241,.12), transparent 28%),
+        linear-gradient(#fff, #f8fafc);
+      border: 1px solid var(--line);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .node {
+      position: absolute;
+      min-width: 120px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: #fff;
+      border: 2px solid #d7dce5;
+      box-shadow: 0 8px 18px rgba(15,23,42,.08);
+      font-size: 12px;
+      z-index: 2;
+    }
+
+    .node strong { display: block; font-size: 13px; margin-bottom: 4px; }
+    .node.center { border-color: var(--primary); background: var(--primary-soft); left: 41%; top: 42%; }
+    .node.a { left: 8%; top: 14%; }
+    .node.b { right: 8%; top: 16%; }
+    .node.c { left: 10%; bottom: 13%; }
+    .node.d { right: 10%; bottom: 13%; }
+    .node.e { left: 41%; top: 7%; }
+
+    .edge {
+      position: absolute;
+      height: 2px;
+      background: #cbd5e1;
+      transform-origin: left center;
+      z-index: 1;
+    }
+
+    .edge::after {
+      content: "";
+      position: absolute;
+      right: -1px;
+      top: -4px;
+      border-left: 7px solid #94a3b8;
+      border-top: 4px solid transparent;
+      border-bottom: 4px solid transparent;
+    }
+
+    .e1 { width: 190px; left: 18%; top: 29%; transform: rotate(27deg); }
+    .e2 { width: 188px; left: 55%; top: 48%; transform: rotate(-25deg); }
+    .e3 { width: 190px; left: 18%; top: 69%; transform: rotate(-27deg); }
+    .e4 { width: 185px; left: 55%; top: 55%; transform: rotate(26deg); }
+    .e5 { width: 120px; left: 48%; top: 29%; transform: rotate(90deg); }
+
+    .legend {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .legend span::before {
+      content: "";
+      display: inline-block;
+      width: 9px;
+      height: 9px;
+      border-radius: 3px;
+      margin-right: 6px;
+      background: #cbd5e1;
+    }
+
+    .legend .selected::before { background: var(--primary); }
+    .legend .static::before { background: var(--success); }
+    .legend .inferred::before { background: var(--warning); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: middle;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      background: #fafbfc;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .pill.purple { background: var(--primary-soft); color: var(--primary); }
+    .pill.green { background: var(--success-soft); color: var(--success); }
+    .pill.orange { background: var(--warning-soft); color: var(--warning); }
+
+    .component-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .component {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+      background: #fff;
+      cursor: pointer;
+      transition: .16s ease;
+    }
+
+    .component:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 18px rgba(15,23,42,.07);
+    }
+
+    .component h3 {
+      margin: 0 0 7px;
+      font-size: 14px;
+    }
+
+    .component p {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+      margin: 0 0 12px;
+    }
+
+    .component-meta {
+      display: flex;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .activity {
+      display: grid;
+      gap: 12px;
+    }
+
+    .activity-item {
+      display: grid;
+      grid-template-columns: 10px 1fr auto;
+      gap: 10px;
+      align-items: start;
+    }
+
+    .activity-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--primary);
+      margin-top: 4px;
+    }
+
+    .activity-main {
+      font-size: 13px;
+    }
+
+    .activity-sub {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 3px;
+    }
+
+    .activity-time {
+      color: var(--muted);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .hidden { display: none; }
+
+    @media (max-width: 1080px) {
+      .app { grid-template-columns: 88px minmax(0, 1fr); }
+      .sidebar { padding: 20px 10px; }
+      .brand span:last-child,
+      .nav-item span:last-child,
+      .nav-label,
+      .sidebar-bottom { display: none; }
+      .brand { justify-content: center; }
+      .nav-item { justify-content: center; }
+      .span-3, .span-4 { grid-column: span 6; }
+      .span-5, .span-7, .span-8 { grid-column: span 12; }
+    }
+
+    @media (max-width: 720px) {
+      .app { display: block; }
+      .sidebar { display: none; }
+      .topbar { padding: 0 16px; }
+      .search { width: 55vw; }
+      .content { padding: 18px; }
+      .hero { flex-direction: column; }
+      .span-3, .span-4, .span-5, .span-7, .span-8, .span-12 { grid-column: span 12; }
+      .component-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">CS</div>
+        <span>ContextSource</span>
+      </div>
+
+      <div class="nav-label">Workspace</div>
+      <a class="nav-item active"><span class="nav-icon">▦</span><span>프로젝트</span></a>
+      <a class="nav-item"><span class="nav-icon">◎</span><span>관계 탐색</span></a>
+      <a class="nav-item"><span class="nav-icon">⌘</span><span>패턴 컴포넌트</span></a>
+      <a class="nav-item"><span class="nav-icon">◫</span><span>Evidence</span></a>
+
+      <div class="nav-label">System</div>
+      <a class="nav-item"><span class="nav-icon">⚙</span><span>분석 설정</span></a>
+      <a class="nav-item"><span class="nav-icon">↻</span><span>분석 이력</span></a>
+
+      <div class="sidebar-bottom">
+        <strong>Analyzer v0.1.0</strong><br/>
+        TypeScript Static Analyzer
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="search">
+          <span>⌕</span>
+          <input placeholder="Entity, 파일, 함수, 클래스 검색" />
+        </div>
+        <div class="top-actions">
+          <button class="btn">Git 연결</button>
+          <button class="btn primary" id="analyzeBtn">분석 실행</button>
+        </div>
+      </header>
+
+      <div class="content">
+        <div class="breadcrumb">내 프로젝트 / payment-platform</div>
+
+        <section class="hero">
+          <div>
+            <h1>payment-platform</h1>
+            <div class="repo-line">github.com/example/payment-platform · main · revision #8e2c5e</div>
+          </div>
+          <div class="status"><span class="status-dot"></span> 분석 완료</div>
+        </section>
+
+        <div class="tabs">
+          <button class="tab active" data-tab="overview">요약</button>
+          <button class="tab" data-tab="analysis">분석 상세</button>
+          <button class="tab" data-tab="relations">관계</button>
+          <button class="tab" data-tab="patterns">패턴 컴포넌트</button>
+          <button class="tab" data-tab="evidence">Evidence</button>
+          <button class="tab" data-tab="history">분석 이력</button>
+        </div>
+
+        <section id="overview" class="tab-panel">
+          <div class="grid">
+            <div class="card span-3">
+              <div class="card-title"><h2>Entity</h2><span class="hint">정적 분석</span></div>
+              <div class="metric">1,284</div>
+              <div class="metric-sub">파일·클래스·함수·메서드</div>
+              <div class="trend good">▲ 42개 새로 발견</div>
+            </div>
+
+            <div class="card span-3">
+              <div class="card-title"><h2>Relationship</h2><span class="hint">Evidence 연결</span></div>
+              <div class="metric">3,976</div>
+              <div class="metric-sub">CALLS·IMPORTS·EXTENDS 등</div>
+              <div class="trend good">100% Evidence 보유</div>
+            </div>
+
+            <div class="card span-3">
+              <div class="card-title"><h2>분석 정확도</h2><span class="hint">샘플 검증</span></div>
+              <div class="metric">97.8%</div>
+              <div class="metric-sub">static 관계 기준</div>
+              <div class="progress"><div style="width:97.8%"></div></div>
+            </div>
+
+            <div class="card span-3">
+              <div class="card-title"><h2>패턴 후보</h2><span class="hint">반복 구조</span></div>
+              <div class="metric">18</div>
+              <div class="metric-sub">검토 필요 6개</div>
+              <div class="trend warn">2개는 컴포넌트화 가능</div>
+            </div>
+
+            <div class="card span-5">
+              <div class="card-title"><h2>확인이 필요한 항목</h2><span class="hint">3건</span></div>
+              <div class="issue-list">
+                <div class="issue">
+                  <div class="issue-main">
+                    <div class="issue-badge warn">6</div>
+                    <div>
+                      <div class="issue-title">추론 관계 검토</div>
+                      <div class="issue-desc">동적 호출 또는 인덱스 접근으로 inferred 처리됨</div>
+                    </div>
+                  </div>
+                  <span>›</span>
+                </div>
+                <div class="issue">
+                  <div class="issue-main">
+                    <div class="issue-badge info">2</div>
+                    <div>
+                      <div class="issue-title">패턴 컴포넌트 후보</div>
+                      <div class="issue-desc">Controller-Service-Repository 구조가 반복됨</div>
+                    </div>
+                  </div>
+                  <span>›</span>
+                </div>
+                <div class="issue">
+                  <div class="issue-main">
+                    <div class="issue-badge danger">1</div>
+                    <div>
+                      <div class="issue-title">분석 실패 파일</div>
+                      <div class="issue-desc">src/legacy/payment-adapter.ts 파싱 실패</div>
+                    </div>
+                  </div>
+                  <span>›</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="card span-7">
+              <div class="card-title">
+                <div>
+                  <h2>PaymentService 영향 그래프</h2>
+                  <div class="hint">역방향 의존 관계 · depth 2</div>
+                </div>
+                <button class="btn">전체 화면</button>
+              </div>
+              <div class="graph">
+                <div class="edge e1"></div>
+                <div class="edge e2"></div>
+                <div class="edge e3"></div>
+                <div class="edge e4"></div>
+                <div class="edge e5"></div>
+
+                <div class="node a"><strong>CheckoutController</strong>Class</div>
+                <div class="node b"><strong>PaymentRepository</strong>Class</div>
+                <div class="node c"><strong>OrderService</strong>Class</div>
+                <div class="node d"><strong>ExternalModule</strong>@stripe/sdk</div>
+                <div class="node e"><strong>PaymentPort</strong>Interface</div>
+                <div class="node center"><strong>PaymentService</strong>Class · selected</div>
+              </div>
+              <div class="legend">
+                <span class="selected">선택 Entity</span>
+                <span class="static">static</span>
+                <span class="inferred">inferred</span>
+              </div>
+            </div>
+
+            <div class="card span-8">
+              <div class="card-title">
+                <div>
+                  <h2>최근 발견된 패턴 컴포넌트</h2>
+                  <div class="hint">반복 구현을 재사용 가능한 형태로 관리</div>
+                </div>
+                <button class="btn">전체 보기</button>
+              </div>
+
+              <div class="component-grid">
+                <div class="component">
+                  <span class="pill purple">Candidate</span>
+                  <h3>Transactional Service</h3>
+                  <p>Service 계층에서 transaction boundary와 repository 호출이 반복되는 구조.</p>
+                  <div class="component-meta"><span>12회 발견</span><span>유사도 94%</span></div>
+                </div>
+                <div class="component">
+                  <span class="pill green">Approved</span>
+                  <h3>API Error Handler</h3>
+                  <p>HTTP 예외 변환, 로깅, 공통 응답 모델을 묶은 예외 처리 패턴.</p>
+                  <div class="component-meta"><span>8회 사용</span><span>v1.2</span></div>
+                </div>
+                <div class="component">
+                  <span class="pill orange">Review</span>
+                  <h3>External Client Adapter</h3>
+                  <p>외부 SDK 호출을 Adapter로 감싸고 timeout과 retry를 적용하는 구조.</p>
+                  <div class="component-meta"><span>5회 발견</span><span>유사도 88%</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card span-4">
+              <div class="card-title"><h2>최근 분석 이력</h2><span class="hint">main</span></div>
+              <div class="activity">
+                <div class="activity-item">
+                  <div class="activity-dot"></div>
+                  <div>
+                    <div class="activity-main">증분 분석 완료</div>
+                    <div class="activity-sub">변경 파일 12개 · 4.8초</div>
+                  </div>
+                  <div class="activity-time">10분 전</div>
+                </div>
+                <div class="activity-item">
+                  <div class="activity-dot" style="background:#159455"></div>
+                  <div>
+                    <div class="activity-main">전체 분석 완료</div>
+                    <div class="activity-sub">Entity 1,242개</div>
+                  </div>
+                  <div class="activity-time">어제</div>
+                </div>
+                <div class="activity-item">
+                  <div class="activity-dot" style="background:#d97706"></div>
+                  <div>
+                    <div class="activity-main">패턴 후보 생성</div>
+                    <div class="activity-sub">신규 후보 3개</div>
+                  </div>
+                  <div class="activity-time">2일 전</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="analysis" class="tab-panel hidden">
+          <div class="card">
+            <div class="card-title"><h2>분석 상세</h2><span class="hint">정적 분석 결과</span></div>
+            <table>
+              <thead><tr><th>파일</th><th>Entity</th><th>Relationship</th><th>상태</th><th>Revision</th></tr></thead>
+              <tbody>
+                <tr><td>src/payment/PaymentService.ts</td><td>18</td><td>42</td><td><span class="pill green">완료</span></td><td>#8e2c5e</td></tr>
+                <tr><td>src/order/OrderService.ts</td><td>12</td><td>31</td><td><span class="pill green">완료</span></td><td>#8e2c5e</td></tr>
+                <tr><td>src/legacy/payment-adapter.ts</td><td>-</td><td>-</td><td><span class="pill orange">파싱 실패</span></td><td>#8e2c5e</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="relations" class="tab-panel hidden">
+          <div class="card">
+            <div class="card-title"><h2>관계 탐색</h2><span class="hint">Caller / Callee / Subgraph</span></div>
+            <table>
+              <thead><tr><th>Source</th><th>Type</th><th>Target</th><th>Resolution</th><th>Evidence</th></tr></thead>
+              <tbody>
+                <tr><td>CheckoutController.create()</td><td>CALLS</td><td>PaymentService.pay()</td><td><span class="pill green">static</span></td><td>payment.controller.ts:42</td></tr>
+                <tr><td>PaymentService</td><td>IMPLEMENTS</td><td>PaymentPort</td><td><span class="pill green">static</span></td><td>PaymentService.ts:18</td></tr>
+                <tr><td>PaymentService.retry()</td><td>CALLS</td><td>handler[index]</td><td><span class="pill orange">inferred</span></td><td>PaymentService.ts:107</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="patterns" class="tab-panel hidden">
+          <div class="card">
+            <div class="card-title"><h2>패턴 컴포넌트</h2><button class="btn primary">새 컴포넌트 등록</button></div>
+            <div class="component-grid">
+              <div class="component"><span class="pill green">Approved</span><h3>API Error Handler</h3><p>검증된 공통 예외 처리 패턴.</p><div class="component-meta"><span>8회 사용</span><span>v1.2</span></div></div>
+              <div class="component"><span class="pill purple">Candidate</span><h3>Transactional Service</h3><p>트랜잭션 경계와 repository 호출 구조.</p><div class="component-meta"><span>12회 발견</span><span>검토 필요</span></div></div>
+              <div class="component"><span class="pill orange">Review</span><h3>External Client Adapter</h3><p>외부 연동 timeout·retry adapter 구조.</p><div class="component-meta"><span>5회 발견</span><span>88%</span></div></div>
+            </div>
+          </div>
+        </section>
+
+        <section id="evidence" class="tab-panel hidden">
+          <div class="card">
+            <div class="card-title"><h2>Evidence</h2><span class="hint">원본 코드 추적</span></div>
+            <pre style="background:#111827;color:#e5e7eb;padding:18px;border-radius:12px;overflow:auto;"><code>42  async createPayment(command: CreatePaymentCommand) {
+43    return this.paymentService.pay(command);
+44  }</code></pre>
+            <p class="hint">Relationship: CheckoutController.create() → PaymentService.pay() · analyzer ts-symbol-resolver@0.1.0</p>
+          </div>
+        </section>
+
+        <section id="history" class="tab-panel hidden">
+          <div class="card">
+            <div class="card-title"><h2>분석 이력</h2><span class="hint">Git revision 기준</span></div>
+            <table>
+              <thead><tr><th>시각</th><th>모드</th><th>Revision</th><th>변경 파일</th><th>소요 시간</th><th>결과</th></tr></thead>
+              <tbody>
+                <tr><td>2026-08-05 20:12</td><td>Incremental</td><td>#8e2c5e</td><td>12</td><td>4.8s</td><td><span class="pill green">완료</span></td></tr>
+                <tr><td>2026-08-04 18:20</td><td>Full Scan</td><td>#79ba231</td><td>418</td><td>2m 14s</td><td><span class="pill green">완료</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const tabs = document.querySelectorAll('.tab');
+    const panels = document.querySelectorAll('.tab-panel');
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        panels.forEach(p => p.classList.add('hidden'));
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.tab).classList.remove('hidden');
+      });
+    });
+
+    document.getElementById('analyzeBtn').addEventListener('click', (e) => {
+      const button = e.currentTarget;
+      const original = button.textContent;
+      button.textContent = '분석 중...';
+      button.disabled = true;
+      setTimeout(() => {
+        button.textContent = '분석 완료';
+        setTimeout(() => {
+          button.textContent = original;
+          button.disabled = false;
+        }, 1200);
+      }, 1200);
+    });
+  </script>
+</body>
+</html>

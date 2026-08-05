@@ -1,0 +1,21 @@
+{
+  "name": "@contextsource/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "contextsource": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src --ext .ts",
+    "start": "tsc -p tsconfig.json && node dist/index.js"
+  },
+  "dependencies": {
+    "@contextsource/core": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5"
+  }
+}

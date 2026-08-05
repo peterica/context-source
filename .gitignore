@@ -1,0 +1,14 @@
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+.DS_Store
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+/data/
+coverage/
+.env
+.env.local
+packages/*/test-tmp/

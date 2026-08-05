@@ -1,0 +1,338 @@
+import { describe, expect, it } from 'vitest';
+import { analyzeProject } from '../src/analyzer/project-analyzer.js';
+import {
+  externalModuleEntityId,
+  fileEntityId,
+  relationshipId,
+  symbolEntityId,
+} from '../src/id.js';
+import type { Relationship } from '../src/types.js';
+import { fixtureTsconfig } from './helpers.js';
+
+const PROJECT = 'p1';
+const REV = 'rev1';
+
+function findRel(rels: Relationship[], type: string, sourceId: string, targetId: string) {
+  return rels.find((r) => r.type === type && r.sourceId === sourceId && r.targetId === targetId);
+}
+
+describe('basic import + alias import', () => {
+  const result = analyzeProject({
+    tsconfigPath: fixtureTsconfig('basic-import'),
+    projectId: PROJECT,
+    revision: REV,
+  });
+
+  it('has no failures', () => {
+    expect(result.failures).toEqual([]);
+  });
+
+  it('extracts File and Function entities', () => {
+    const aFile = fileEntityId(PROJECT, 'src/a.ts');
+    const bFile = fileEntityId(PROJECT, 'src/b.ts');
+    const foo = symbolEntityId(PROJECT, 'src/a.ts', 'foo');
+    const useFoo = symbolEntityId(PROJECT, 'src/b.ts', 'useFoo');
+    const ids = result.entities.map((e) => e.id);
+    expect(ids).toEqual(expect.arrayContaining([aFile, bFile, foo, useFoo]));
+    expect(result.entities.find((e) => e.id === foo)?.kind).toBe('function');
+  });
+
+  it('IMPORTS b.ts -> a.ts (static)', () => {
+    const bFile = fileEntityId(PROJECT, 'src/b.ts');
+    const aFile = fileEntityId(PROJECT, 'src/a.ts');
+    const rel = findRel(result.relationships, 'IMPORTS', bFile, aFile);
+    expect(rel).toBeDefined();
+    expect(rel?.resolution).toBe('static');
+    expect(rel?.confidence).toBe(1.0);
+    expect(rel?.evidence.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('CALLS useFoo -> foo resolves through the alias import (static)', () => {
+    const useFoo = symbolEntityId(PROJECT, 'src/b.ts', 'useFoo');
+    const foo = symbolEntityId(PROJECT, 'src/a.ts', 'foo');
+    const rel = findRel(result.relationships, 'CALLS', useFoo, foo);
+    expect(rel).toBeDefined();
+    expect(rel?.resolution).toBe('static');
+    expect(rel?.confidence).toBe(1.0);
+  });
+
+  it('every relationship carries at least one Evidence entry', () => {
+    for (const rel of result.relationships) {
+      expect(rel.evidence.length).toBeGreaterThan(0);
+      for (const ev of rel.evidence) {
+        expect(ev.filePath).toBeTruthy();
+        expect(ev.snippet.length).toBeGreaterThan(0);
+        expect(ev.analyzer).toBe('ts-analyzer@0.1.0');
+        expect(ev.revision).toBe(REV);
+      }
+    }
+  });
+});
+
+describe('barrel re-export', () => {
+  const result = analyzeProject({
+    tsconfigPath: fixtureTsconfig('barrel-reexport'),
+    projectId: PROJECT,
+    revision: REV,
+  });
+
+  it('has no failures', () => {
+    expect(result.failures).toEqual([]);
+  });
+
+  it('IMPORTS index.ts -> service.ts (re-export) and consumer.ts -> index.ts', () => {
+    const index = fileEntityId(PROJECT, 'src/index.ts');
+    const service = fileEntityId(PROJECT, 'src/service.ts');
+    const consumer = fileEntityId(PROJECT, 'src/consumer.ts');
+    expect(findRel(result.relationships, 'IMPORTS', index, service)).toBeDefined();
+    expect(findRel(result.relationships, 'IMPORTS', consumer, index)).toBeDefined();
+  });
+
+  it('CALLS run -> Greeter (construction) resolves through the barrel re-export chain', () => {
+    const run = symbolEntityId(PROJECT, 'src/consumer.ts', 'run');
+    const greeter = symbolEntityId(PROJECT, 'src/service.ts', 'Greeter');
+    const rel = findRel(result.relationships, 'CALLS', run, greeter);
+    expect(rel).toBeDefined();
+    expect(rel?.resolution).toBe('static');
+  });
+
+  it('CALLS run -> Greeter.greet (static)', () => {
+    const run = symbolEntityId(PROJECT, 'src/consumer.ts', 'run');
+    const greet = symbolEntityId(PROJECT, 'src/service.ts', 'Greeter.greet');
+    const rel = findRel(result.relationships, 'CALLS', run, greet);
+    expect(rel).toBeDefined();
+    expect(rel?.resolution).toBe('static');
+  });
+});
+
+describe('interface implementation and class/interface inheritance', () => {
+  const result = analyzeProject({
+    tsconfigPath: fixtureTsconfig('inheritance'),
+    projectId: PROJECT,
+    revision: REV,
+  });
+
+  it('has no failures', () => {
+    expect(result.failures).toEqual([]);
+  });
+
+  it('Square IMPLEMENTS Shape (static)', () => {
+    const square = symbolEntityId(PROJECT, 'src/square.ts', 'Square');
+    const shape = symbolEntityId(PROJECT, 'src/base.ts', 'Shape');
+    const rel = findRel(result.relationships, 'IMPLEMENTS', square, shape);
+    expect(rel).toBeDefined();
+    expect(rel?.resolution).toBe('static');
+    expect(rel?.confidence).toBe(1.0);
+  });
+
+  it('Square EXTENDS BaseShape (static)', () => {
+    const square = symbolEntityId(PROJECT, 'src/square.ts', 'Square');
+    const baseShape = symbolEntityId(PROJECT, 'src/base.ts', 'BaseShape');
+    const rel = findRel(result.relationships, 'EXTENDS', square, baseShape);
+    expect(rel).toBeDefined();
+    expect(rel?.resolution).toBe('static');
+  });
+
+  it('Colored EXTENDS Shape (interface-to-interface)', () => {
+    const colored = symbolEntityId(PROJECT, 'src/base.ts', 'Colored');
+    const shape = symbolEntityId(PROJECT, 'src/base.ts', 'Shape');
+    const rel = findRel(result.relationships, 'EXTENDS', colored, shape);
+    expect(rel).toBeDefined();
+  });
+});
+
+describe('overload and generic method', () => {
+  const result = analyzeProject({
+    tsconfigPath: fixtureTsconfig('overload-generic'),
+    projectId: PROJECT,
+    revision: REV,
+  });
+
+  it('has no failures', () => {
+    expect(result.failures).toEqual([]);
+  });
+
+  it('collapses overloads into a single Function entity', () => {
+    const identityEntities = result.entities.filter((e) => e.name === 'identity');
+    expect(identityEntities).toHaveLength(1);
+    expect(identityEntities[0]?.kind).toBe('function');
+  });
+
+  it('two call sites of an overloaded function merge into one relationship with two Evidence entries', () => {
+    const run = symbolEntityId(PROJECT, 'src/usage.ts', 'run');
+    const identity = symbolEntityId(PROJECT, 'src/math.ts', 'identity');
+    const rel = findRel(result.relationships, 'CALLS', run, identity);
+    expect(rel).toBeDefined();
+    expect(rel?.resolution).toBe('static');
+    expect(rel?.evidence).toHaveLength(2);
+  });
+
+  it('generic method Box.get is extracted and resolvable as a CALLS target', () => {
+    const boxGet = symbolEntityId(PROJECT, 'src/math.ts', 'Box.get');
+    expect(result.entities.find((e) => e.id === boxGet)?.kind).toBe('method');
+    const run = symbolEntityId(PROJECT, 'src/usage.ts', 'run');
+    const rel = findRel(result.relationships, 'CALLS', run, boxGet);
+    expect(rel).toBeDefined();
+    expect(rel?.resolution).toBe('static');
+  });
+
+  it('CALLS run -> Box via `new Box<number>()`', () => {
+    const run = symbolEntityId(PROJECT, 'src/usage.ts', 'run');
+    const box = symbolEntityId(PROJECT, 'src/math.ts', 'Box');
+    const rel = findRel(result.relationships, 'CALLS', run, box);
+    expect(rel).toBeDefined();
+  });
+});
+
+describe('callback and higher-order function', () => {
+  const result = analyzeProject({
+    tsconfigPath: fixtureTsconfig('callback-hof'),
+    projectId: PROJECT,
+    revision: REV,
+  });
+
+  it('has no failures', () => {
+    expect(result.failures).toEqual([]);
+  });
+
+  it('does NOT create a CALLS relationship for a callback invoked through a generically-typed parameter', () => {
+    const registerHandler = symbolEntityId(PROJECT, 'src/handlers.ts', 'registerHandler');
+    const onClick = symbolEntityId(PROJECT, 'src/handlers.ts', 'onClick');
+    const rel = findRel(result.relationships, 'CALLS', registerHandler, onClick);
+    expect(rel).toBeUndefined();
+  });
+
+  it('creates an inferred CALLS relationship when a known function is called through a direct local alias', () => {
+    const invoke = symbolEntityId(PROJECT, 'src/handlers.ts', 'invoke');
+    const greet = symbolEntityId(PROJECT, 'src/handlers.ts', 'greet');
+    const rel = findRel(result.relationships, 'CALLS', invoke, greet);
+    expect(rel).toBeDefined();
+    expect(rel?.resolution).toBe('inferred');
+    expect(rel?.confidence).toBe(0.8);
+  });
+
+  it('setup -> registerHandler is a direct static call', () => {
+    const setup = symbolEntityId(PROJECT, 'src/wiring.ts', 'setup');
+    const registerHandler = symbolEntityId(PROJECT, 'src/handlers.ts', 'registerHandler');
+    const rel = findRel(result.relationships, 'CALLS', setup, registerHandler);
+    expect(rel).toBeDefined();
+    expect(rel?.resolution).toBe('static');
+  });
+});
+
+describe('dynamic import and unresolvable calls', () => {
+  const result = analyzeProject({
+    tsconfigPath: fixtureTsconfig('dynamic-import'),
+    projectId: PROJECT,
+    revision: REV,
+  });
+
+  it('has no failures', () => {
+    expect(result.failures).toEqual([]);
+  });
+
+  it('literal dynamic import produces an inferred IMPORTS relationship', () => {
+    const loader = fileEntityId(PROJECT, 'src/loader.ts');
+    const lazy = fileEntityId(PROJECT, 'src/lazy.ts');
+    const rel = findRel(result.relationships, 'IMPORTS', loader, lazy);
+    expect(rel).toBeDefined();
+    expect(rel?.resolution).toBe('inferred');
+    expect(rel?.confidence).toBe(0.6);
+  });
+
+  it('computed dynamic import specifier produces no relationship (unresolvable)', () => {
+    // loadDynamic는 loader.ts 안에서 lazy.ts 이외의 어떤 파일로도 IMPORTS 관계가 생기지 않는다.
+    const loader = fileEntityId(PROJECT, 'src/loader.ts');
+    const importsFromLoader = result.relationships.filter(
+      (r) => r.type === 'IMPORTS' && r.sourceId === loader,
+    );
+    expect(importsFromLoader).toHaveLength(1); // lazy.ts로의 관계 1건뿐
+  });
+});
+
+describe('external package import', () => {
+  const result = analyzeProject({
+    tsconfigPath: fixtureTsconfig('external-package'),
+    projectId: PROJECT,
+    revision: REV,
+  });
+
+  it('has no failures', () => {
+    expect(result.failures).toEqual([]);
+  });
+
+  it('creates an ExternalModule entity for the package (no location/revision)', () => {
+    const ext = externalModuleEntityId(PROJECT, 'left-pad-like');
+    const entity = result.entities.find((e) => e.id === ext);
+    expect(entity).toBeDefined();
+    expect(entity?.kind).toBe('external_module');
+    expect(entity?.filePath).toBeNull();
+    expect(entity?.range).toBeNull();
+    expect(entity?.revision).toBeNull();
+  });
+
+  it('IMPORTS consumer.ts -> ExternalModule(left-pad-like)', () => {
+    const consumer = fileEntityId(PROJECT, 'src/consumer.ts');
+    const ext = externalModuleEntityId(PROJECT, 'left-pad-like');
+    const rel = findRel(result.relationships, 'IMPORTS', consumer, ext);
+    expect(rel).toBeDefined();
+    expect(rel?.resolution).toBe('static');
+  });
+
+  it('does NOT create a CALLS relationship to the external symbol (OQ-11)', () => {
+    const run = symbolEntityId(PROJECT, 'src/consumer.ts', 'run');
+    const callsFromRun = result.relationships.filter(
+      (r) => r.type === 'CALLS' && r.sourceId === run,
+    );
+    expect(callsFromRun).toHaveLength(0);
+  });
+});
+
+describe('parsing failure isolation', () => {
+  const result = analyzeProject({
+    tsconfigPath: fixtureTsconfig('parse-failure'),
+    projectId: PROJECT,
+    revision: REV,
+  });
+
+  it('reports the broken file as a failure', () => {
+    expect(result.failures).toHaveLength(1);
+    expect(result.failures[0]?.filePath).toBe('src/bad.ts');
+    expect(result.failures[0]?.message.length).toBeGreaterThan(0);
+  });
+
+  it('still analyzes the valid file in the same project', () => {
+    const ok = symbolEntityId(PROJECT, 'src/good.ts', 'ok');
+    expect(result.entities.find((e) => e.id === ok)).toBeDefined();
+  });
+
+  it('creates no entities sourced from the broken file', () => {
+    const fromBadFile = result.entities.filter((e) => e.filePath === 'src/bad.ts');
+    expect(fromBadFile).toHaveLength(0);
+  });
+});
+
+describe('Entity id stability (FR-A4)', () => {
+  it('relationship id is a deterministic hash of (type, source, target)', () => {
+    const id1 = relationshipId('CALLS', 'p1/sym:a.ts#f', 'p1/sym:b.ts#g');
+    const id2 = relationshipId('CALLS', 'p1/sym:a.ts#f', 'p1/sym:b.ts#g');
+    expect(id1).toBe(id2);
+  });
+
+  it('re-analyzing the same unchanged project yields identical entity and relationship ids', () => {
+    const first = analyzeProject({
+      tsconfigPath: fixtureTsconfig('basic-import'),
+      projectId: PROJECT,
+      revision: 'rev-a',
+    });
+    const second = analyzeProject({
+      tsconfigPath: fixtureTsconfig('basic-import'),
+      projectId: PROJECT,
+      revision: 'rev-b',
+    });
+    expect(new Set(first.entities.map((e) => e.id))).toEqual(new Set(second.entities.map((e) => e.id)));
+    expect(new Set(first.relationships.map((r) => r.id))).toEqual(
+      new Set(second.relationships.map((r) => r.id)),
+    );
+  });
+});

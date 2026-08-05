@@ -1,0 +1,32 @@
+{
+  "name": "context-source",
+  "private": true,
+  "version": "0.1.0",
+  "description": "ContextSource — TypeScript code relationship analyzer (Entity/Relationship/Evidence, Query, Web UI, MCP)",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:core": "npm run test -w @contextsource/core",
+    "test:api": "npm run test -w @contextsource/api",
+    "analyze": "npm run start -w @contextsource/cli --",
+    "dev:api": "npm run dev -w @contextsource/api",
+    "dev:web": "npm run dev -w @contextsource/web",
+    "mcp": "npm run start -w @contextsource/mcp"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.5.4"
+  }
+}

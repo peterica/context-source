@@ -12,10 +12,11 @@ import {
   listConnectedRelationships,
   listRuns,
   runFullAnalysis,
+  runIncrementalAnalysis,
   searchEntities,
   type Db,
 } from '@contextsource/core';
-import { ApiError, toErrorBody } from './errors.js';
+import { ApiError, toApiError, toErrorBody } from './errors.js';
 import { decodeEntityId, encodeEntityId } from './id-encoding.js';
 import {
   parseBoolean,
@@ -45,7 +46,7 @@ function asyncHandler(fn: (req: Request, res: Response) => void) {
     try {
       fn(req, res);
     } catch (err) {
-      next(err);
+      next(toApiError(err) ?? err);
     }
   };
 }
@@ -169,15 +170,17 @@ export function createApp(ctx: AppContext): Express {
       if (isAnyRunInProgress(ctx.db, ctx.projectId)) {
         throw new ApiError('ANALYSIS_IN_PROGRESS', 'an analysis run is already in progress');
       }
-      if (mode === 'incremental') {
-        // M3에서 증분 엔진과 함께 이 분기를 구현한다.
-        res.status(501).json({
-          error: { code: 'INVALID_PARAM', message: 'incremental mode is not implemented yet' },
-        });
-        return;
-      }
       if (!ctx.tsconfigPath) {
         throw new ApiError('INVALID_PARAM', 'server was not started with a tsconfig path');
+      }
+      if (mode === 'incremental') {
+        const run = runIncrementalAnalysis({
+          db: ctx.db,
+          projectId: ctx.projectId,
+          tsconfigPath: ctx.tsconfigPath,
+        });
+        res.status(202).json({ runId: run.id });
+        return;
       }
       const revision = ctx.resolveRevision ? ctx.resolveRevision() : 'unversioned';
       const run = runFullAnalysis({

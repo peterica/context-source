@@ -49,3 +49,17 @@ export {
 } from './query/subgraph.js';
 
 export { runFullAnalysis, type RunFullAnalysisOptions } from './orchestrator.js';
+
+export {
+  runIncrementalAnalysis,
+  type RunIncrementalAnalysisOptions,
+} from './incremental/incremental-runner.js';
+export {
+  resolveGitRoot,
+  currentRevision as gitCurrentRevision,
+  isGitRepo,
+  diffNameStatus,
+  toProjectRelative,
+  type GitDiff,
+} from './incremental/git.js';
+export { findReverseImporters } from './incremental/reverse-imports.js';

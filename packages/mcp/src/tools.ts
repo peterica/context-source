@@ -1,0 +1,145 @@
+import { z } from 'zod';
+import {
+  getEntity,
+  getRelationshipCounts,
+  getSubgraph,
+  listCallees,
+  listCallers,
+  searchEntities,
+  type Db,
+  type EntityKind,
+  type RelationshipType,
+  type Resolution,
+} from '@contextsource/core';
+
+const ENTITY_KINDS = ['file', 'class', 'interface', 'function', 'method', 'external_module'] as const;
+const RELATIONSHIP_TYPES = ['DECLARES', 'IMPORTS', 'CALLS', 'IMPLEMENTS', 'EXTENDS'] as const;
+const RESOLUTIONS = ['static', 'inferred'] as const;
+
+function json(value: unknown) {
+  return { content: [{ type: 'text' as const, text: JSON.stringify(value, null, 2) }] };
+}
+
+function notFound(id: string) {
+  return {
+    content: [{ type: 'text' as const, text: JSON.stringify({ error: { code: 'ENTITY_NOT_FOUND', message: `no entity with id ${id}` } }) }],
+    isError: true,
+  };
+}
+
+export interface ToolContext {
+  db: Db;
+  projectId: string;
+}
+
+/**
+ * API.md 3장 MCP Tools — search_entities / get_entity / get_callers / get_callees / get_subgraph.
+ * 모두 읽기 전용이며 HTTP API와 동일한 core Query 서비스를 공유한다 (Shared Context 원칙).
+ */
+export function buildToolDefinitions(ctx: ToolContext) {
+  return {
+    search_entities: {
+      title: 'Search entities',
+      description:
+        'Entity를 이름(부분 일치)/종류/파일 경로(접두 일치)로 검색한다. 관계 탐색의 시작점으로 사용한다 (FR-Q2).',
+      inputSchema: {
+        name: z.string().optional().describe('이름 부분 일치 (대소문자 무시)'),
+        kind: z.enum(ENTITY_KINDS).optional(),
+        filePath: z.string().optional().describe('파일 경로 접두 일치'),
+        limit: z.number().int().min(1).max(200).optional().describe('기본 50, 최대 200'),
+      },
+      handler: (args: { name?: string; kind?: EntityKind; filePath?: string; limit?: number }) => {
+        const result = searchEntities(ctx.db, {
+          projectId: ctx.projectId,
+          name: args.name,
+          kind: args.kind,
+          filePath: args.filePath,
+          limit: args.limit ?? 50,
+          offset: 0,
+        });
+        return json(result);
+      },
+    },
+
+    get_entity: {
+      title: 'Get entity detail',
+      description: 'Entity 상세 정보와 들어오는/나가는 관계 개수를 반환한다 (FR-V2).',
+      inputSchema: {
+        id: z.string().describe('Entity의 canonical id (예: p1/sym:src/a.ts#Foo)'),
+      },
+      handler: (args: { id: string }) => {
+        const entity = getEntity(ctx.db, args.id);
+        if (!entity) return notFound(args.id);
+        const relationshipCounts = getRelationshipCounts(ctx.db, args.id);
+        return json({ entity, relationshipCounts });
+      },
+    },
+
+    get_callers: {
+      title: 'Get callers',
+      description: '이 Entity를 호출하는(들어오는 CALLS) Entity 목록을 Evidence와 함께 반환한다 (FR-Q3).',
+      inputSchema: {
+        id: z.string(),
+        limit: z.number().int().min(1).max(200).optional(),
+      },
+      handler: (args: { id: string; limit?: number }) => {
+        const entity = getEntity(ctx.db, args.id);
+        if (!entity) return notFound(args.id);
+        return json(listCallers(ctx.db, args.id, args.limit ?? 50, 0));
+      },
+    },
+
+    get_callees: {
+      title: 'Get callees',
+      description: '이 Entity가 호출하는(나가는 CALLS) Entity 목록을 Evidence와 함께 반환한다 (FR-Q3).',
+      inputSchema: {
+        id: z.string(),
+        limit: z.number().int().min(1).max(200).optional(),
+      },
+      handler: (args: { id: string; limit?: number }) => {
+        const entity = getEntity(ctx.db, args.id);
+        if (!entity) return notFound(args.id);
+        return json(listCallees(ctx.db, args.id, args.limit ?? 50, 0));
+      },
+    },
+
+    get_subgraph: {
+      title: 'Get impact/dependency subgraph',
+      description:
+        '지정한 Entity를 기준으로 direction/depth 안의 서브그래프(Entity+Relationship+Evidence)를 반환한다. ' +
+        '영향 분석(direction=in)이나 구조 설명에 사용한다 (FR-Q4, FR-AI1). maxNodes와 includeSnippets=false로 ' +
+        '토큰 예산을 제어할 수 있다 (FR-AI3). 전체 그래프 덤프는 제공하지 않는다.',
+      inputSchema: {
+        id: z.string(),
+        direction: z.enum(['out', 'in', 'both']).optional().describe('기본 out'),
+        depth: z.number().int().min(0).max(5).optional().describe('기본 2, 최대 5'),
+        types: z.array(z.enum(RELATIONSHIP_TYPES)).optional(),
+        resolution: z.enum(RESOLUTIONS).optional(),
+        maxNodes: z.number().int().min(1).max(1000).optional().describe('기본 200, 최대 1000'),
+        includeSnippets: z.boolean().optional().describe('기본 true. false면 응답 크기를 줄인다'),
+      },
+      handler: (args: {
+        id: string;
+        direction?: 'out' | 'in' | 'both';
+        depth?: number;
+        types?: RelationshipType[];
+        resolution?: Resolution;
+        maxNodes?: number;
+        includeSnippets?: boolean;
+      }) => {
+        const entity = getEntity(ctx.db, args.id);
+        if (!entity) return notFound(args.id);
+        const result = getSubgraph(ctx.db, {
+          rootId: args.id,
+          direction: args.direction ?? 'out',
+          depth: args.depth ?? 2,
+          types: args.types,
+          resolution: args.resolution,
+          maxNodes: args.maxNodes ?? 200,
+          includeSnippets: args.includeSnippets ?? true,
+        });
+        return json(result);
+      },
+    },
+  };
+}

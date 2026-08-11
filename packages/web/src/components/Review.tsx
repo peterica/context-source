@@ -30,11 +30,12 @@ export function Review(props: {
 
   return (
     <div>
-      <h2 className="section-title">확인이 필요한 항목 — Inferred 관계 검토 ({total}건)</h2>
+      <h2 className="section-title">참고용 — 자동 추론된 관계 목록 ({total}건)</h2>
       <p style={{ fontSize: 12, color: 'var(--text-dim)', maxWidth: 640 }}>
         정적으로 완전히 확정되지 않아 <span className="badge inferred">inferred</span>로 기록된 관계입니다.
-        confidence가 낮은 순으로 정렬되어 있습니다 (NFR-5 — static은 항상 false positive 0%를 목표로 하며,
-        불확실한 관계는 이곳에서 사람이 검토합니다).
+        확신도(confidence)가 낮은 순으로 정렬되어 있으니, 관계가 실제로 맞는지 근거 위치의 코드를 함께
+        확인해보세요. 이 화면에서 별도로 승인하거나 삭제할 필요는 없습니다 — 목록은 분석 결과를 그대로
+        보여줄 뿐입니다.
       </p>
       <div className="panel">
         {items.length === 0 && <div className="empty">검토할 inferred 관계가 없습니다.</div>}

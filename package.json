@@ -1,7 +1,7 @@
 {
   "name": "context-source",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "ContextSource — TypeScript code relationship analyzer (Entity/Relationship/Evidence, Query, Web UI, MCP)",
   "workspaces": [
     "packages/*"

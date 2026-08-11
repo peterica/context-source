@@ -417,11 +417,11 @@ HTTP API·MCP 모두 인증이 전혀 없다(IMPLEMENTATION_REPORT §10). PRD NF
 - "언제까지 로컬 단일 사용자 전제가 유효한지"를 로드맵에 명시적으로 결정한다.
 - 최소한 파괴적 오퍼레이션(삭제, 등록)에 대한 API key 같은 최소 보호장치를 P1로 검토한다(IMPLEMENTATION_REPORT §11-5 기존 권고와 연결).
 
-### 5.13 P1 — CI 자동화
+### 5.13 P1 — [해결됨] CI 자동화
 
-140개 이상의 테스트, 골든 fixture, 스키마 무결성 테스트, 증분==full scan 동등성 테스트 등 품질 자산은 CodeQL의 "Query와 테스트로 반복 검증" 철학과 견줄 만하다. 그런데 이 엄격함이 로컬에서 사람이 수동으로 `make test`를 돌릴 때만 보장되고, PR/커밋마다 자동으로 강제되지 않는다.
+140개 이상의 테스트, 골든 fixture, 스키마 무결성 테스트, 증분==full scan 동등성 테스트 등 품질 자산은 CodeQL의 "Query와 테스트로 반복 검증" 철학과 견줄 만하다. 그런데 이 엄격함이 로컬에서 사람이 수동으로 `make test`를 돌릴 때만 보장되고, PR/커밋마다 자동으로 강제되지 않았다.
 
-- GitHub Actions 등으로 `make typecheck && make lint && make test`를 PR마다 자동 실행한다(IMPLEMENTATION_REPORT §11-4 기존 권고 재확인).
+**2026-08-11 수정 완료**: `.github/workflows/ci.yml`을 추가해 push/PR마다 `build → typecheck → lint → test`를 자동 실행한다(IMPLEMENTATION_REPORT §11-4 기존 권고 재확인 및 반영).
 
 ### 5.14 P1 — 확장성(NFR-7) 결정
 

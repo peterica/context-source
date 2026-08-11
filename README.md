@@ -1,5 +1,7 @@
 ContextSource는 코드 관계를 중심으로 시스템을 이해하고, 장기적으로 AI를 위한 Context Platform을 구축하는 프로젝트이다.
 
+[![CI](https://github.com/peterica/context-source/actions/workflows/ci.yml/badge.svg)](https://github.com/peterica/context-source/actions/workflows/ci.yml)
+
 # ContextSource 핵심 정리
 
 ## 프로젝트 목적

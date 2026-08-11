@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # node:sqlite 내장 모듈을 쓰므로 Node >= 22.5.0 필요 (ADR-0001, package.json engines).
+          node-version: '22.9'
+          cache: npm
+
+      - run: npm ci
+
+      # core를 먼저 빌드해야 한다 — api/mcp 테스트가 @contextsource/core를
+      # dist/index.js로 resolve하며(core package.json exports), core가
+      # 빌드되어 있지 않으면 테스트가 실패한다.
+      - run: npm run build
+
+      - run: npm run typecheck
+
+      - run: npm run lint
+
+      - run: npm run test

@@ -239,7 +239,7 @@ $ make test
 - **NFR-2/3/4의 수치 벤치마크**: "증분 분석이 전체 대비 5% 이하 시간", "10만 LOC 수 분 이내", "Query p95 1초 이내"를 대규모 실제 코드베이스로 측정하지 않았다. 골든 fixture와 `samples/demo-project`(파일 7개 규모)에서는 모든 동작이 즉시(수 ms~수백 ms) 완료됨을 확인했지만, 이는 PRD가 요구하는 규모의 정량 검증이 아니다.
 - **`static` false positive 0% / recall 95%의 정량 측정**: 골든 fixture 9종에서는 명시적 assertion으로 0 false positive를 확인했지만, PRD 성공 지표가 요구하는 "샘플 코드베이스 수작업 검증" 규모의 recall 측정은 수행하지 않았다.
 - **Web UI 자동화 컴포넌트 테스트**: M4 Gate(claude-do.md)가 요구하는 것은 "production build + 브라우저 smoke test"이며 둘 다 통과했다. 다만 Vitest+React Testing Library 같은 컴포넌트 단위 테스트는 작성하지 않았다.
-- **CI 파이프라인**: GitHub Actions 등 자동화된 CI는 구성하지 않았다(claude-do.md에서 명시적으로 요구하지 않음).
+- ~~**CI 파이프라인**: GitHub Actions 등 자동화된 CI는 구성하지 않았다(claude-do.md에서 명시적으로 요구하지 않음).~~ **2026-08-11 완료** — `.github/workflows/ci.yml`에서 push/PR마다 `build → typecheck → lint → test`를 자동 실행한다(BENCHMARK.md 5.13).
 
 ---
 
@@ -260,7 +260,7 @@ $ make test
 1. `samples/demo-project`보다 훨씬 큰(실제 오픈소스 규모) TypeScript 프로젝트로 NFR-2/3/4와 recall 95% 성공 지표를 실측하고, 필요하면 인덱스·쿼리를 튜닝한다.
 2. BENCHMARK.md P0 제안 중 "변경 영향 분석의 의미 정의"(구조적 영향 후보 vs 단정적 예측 구분)와 "Path 조회"는 이번 MVP에서 의도적으로 제외했다 — PRD에 반영되면 다음 단계로 고려한다.
 3. Web 번들 code splitting(특히 Cytoscape.js 지연 로딩) 적용.
-4. GitHub Actions 등으로 `make typecheck && make lint && make test`를 PR마다 자동 실행하는 CI 구성.
+4. ~~GitHub Actions 등으로 `make typecheck && make lint && make test`를 PR마다 자동 실행하는 CI 구성.~~ **2026-08-11 완료.**
 5. 로컬 외 환경 배포 시 HTTP API에 최소한의 인증(API key 등)을 추가.
 6. Interface 기반 호출의 recall을 높이고 싶다면, "인터페이스를 구현하는 클래스가 정확히 하나"인 경우에 한해 `inferred`로 연결하는 규칙을 ADR로 추가 검토(현재는 정확성을 우선해 보수적으로 미생성).
 

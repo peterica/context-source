@@ -55,6 +55,22 @@ export function encodeEntityId(canonicalId: string): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+/** encodeEntityId의 역연산 — URL(라우팅)에서 읽어온 encodedId를 canonical id로 복원한다. */
+export function decodeEntityId(encodedId: string): string | undefined {
+  try {
+    const base64 = encodedId.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+    const binary = atob(padded);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const decoded = new TextDecoder().decode(bytes);
+    if (encodeEntityId(decoded) !== encodedId) return undefined; // 왕복 인코딩 검증
+    return decoded;
+  } catch {
+    return undefined;
+  }
+}
+
 export interface ProjectStats {
   entities: { total: number; byKind: Record<EntityKind, number> };
   relationships: {

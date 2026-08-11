@@ -1,24 +1,24 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client.js';
 import { formatRevision } from '../format.js';
+import type { Tab } from '../router.js';
 import type { AnalysisRun, Project } from '@contextsource/core';
 import { Overview } from './Overview.js';
 import { Explore } from './Explore.js';
 import { Review } from './Review.js';
 import { RunHistory } from './RunHistory.js';
 
-type Tab = 'overview' | 'explore' | 'review' | 'history';
-
 export function ProjectWorkspace(props: {
   projectId: string;
+  tab: Tab;
+  selectedEntityId: string | null;
   onBack: () => void;
   onSwitchProject: (projectId: string) => void;
+  onNavigate: (tab: Tab, entityId?: string) => void;
 }) {
-  const { projectId } = props;
-  const [tab, setTab] = useState<Tab>('overview');
+  const { projectId, tab, selectedEntityId } = props;
   const [project, setProject] = useState<Project | null>(null);
   const [lastRun, setLastRun] = useState<AnalysisRun | null>(null);
-  const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -30,8 +30,6 @@ export function ProjectWorkspace(props: {
   }
 
   useEffect(() => {
-    setTab('overview');
-    setSelectedEntityId(null);
     loadProject().catch((e) => console.error(e));
   }, [projectId, refreshKey]);
 
@@ -55,8 +53,7 @@ export function ProjectWorkspace(props: {
   }
 
   function goToEntity(id: string) {
-    setSelectedEntityId(id);
-    setTab('explore');
+    props.onNavigate('explore', id);
   }
 
   return (
@@ -76,16 +73,16 @@ export function ProjectWorkspace(props: {
           </div>
         </div>
         <nav className="tabs">
-          <button className={tab === 'overview' ? 'active' : ''} onClick={() => setTab('overview')}>
+          <button className={tab === 'overview' ? 'active' : ''} onClick={() => props.onNavigate('overview')}>
             Overview
           </button>
-          <button className={tab === 'explore' ? 'active' : ''} onClick={() => setTab('explore')}>
+          <button className={tab === 'explore' ? 'active' : ''} onClick={() => props.onNavigate('explore')}>
             탐색
           </button>
-          <button className={tab === 'review' ? 'active' : ''} onClick={() => setTab('review')}>
+          <button className={tab === 'review' ? 'active' : ''} onClick={() => props.onNavigate('review')}>
             검토
           </button>
-          <button className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>
+          <button className={tab === 'history' ? 'active' : ''} onClick={() => props.onNavigate('history')}>
             분석 이력
           </button>
         </nav>
@@ -111,13 +108,13 @@ export function ProjectWorkspace(props: {
               projectId={projectId}
               refreshKey={refreshKey}
               onSelectEntity={goToEntity}
-              onGoToReview={() => setTab('review')}
+              onGoToReview={() => props.onNavigate('review')}
               onSelectProject={props.onSwitchProject}
             />
           </div>
         )}
         {tab === 'explore' && (
-          <Explore projectId={projectId} selectedEntityId={selectedEntityId} onSelectEntity={setSelectedEntityId} />
+          <Explore projectId={projectId} selectedEntityId={selectedEntityId} onSelectEntity={goToEntity} />
         )}
         {tab === 'review' && (
           <div className="content" style={{ width: '100%' }}>

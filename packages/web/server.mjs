@@ -48,7 +48,8 @@ const server = http.createServer((req, res) => {
 
   fs.readFile(filePath, (err, data) => {
     if (err) {
-      // SPA fallback — 클라이언트 라우팅이 없는 단일 페이지지만 새로고침 시 index.html로 폴백.
+      // SPA fallback — 클라이언트 라우팅(History API, router.ts)이 사용하는 /projects/:id/:tab 같은
+      // 경로는 서버에 실제 파일이 없으므로, 새로고침·직접 방문 시 항상 index.html로 폴백해야 한다.
       fs.readFile(path.join(distDir, 'index.html'), (err2, indexData) => {
         if (err2) {
           res.writeHead(404);

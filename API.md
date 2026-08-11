@@ -206,6 +206,19 @@ GET /projects/{id}/inferred-relationships?limit=&offset=
 - 응답: `{ "items": [ { "relationship": Relationship, "source": Entity, "target": Entity } ], "total": N }`
 - `limit`/`offset` 한도는 1.3절과 동일(기본 50, 최대 200).
 
+### 2.8 기술 스택 — ADR-0005 (Phase 2)
+
+```
+GET    /projects/{id}/tech-stack                          → { "items": [ { "category", "value" } ] }
+POST   /projects/{id}/tech-stack   { category, value }     → 201, { "items": [...] } (idempotent 추가)
+DELETE /projects/{id}/tech-stack   { category, value }     → 204 (idempotent 삭제, 없어도 204)
+POST   /projects/{id}/tech-stack/detect                    → { "items": [...], "added": [...] }
+```
+
+- `category`는 `language | runtime | framework | orm | database | build_tool` 중 하나. 아니면 `400 INVALID_PARAM`.
+- `value`는 1~50자 문자열.
+- `detect`는 프로젝트의 `package.json`(`tsconfigPath` 디렉터리 우선, 없으면 `rootPath`)을 읽어 알려진 패키지를 매핑하고 기존 항목과 병합한다. `added`는 이번 호출로 새로 추가된 항목만 포함한다(이미 있던 항목은 제외).
+
 ---
 
 ## 3. MCP Tools — FR-Q7, FR-AI1, FR-AI3

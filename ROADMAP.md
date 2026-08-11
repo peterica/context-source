@@ -39,14 +39,14 @@ ContextSource는 소스 코드를 관계(Graph) 중심으로 이해하고, 장�
 
 ### 추가 기능
 
-- Project Entity (MVP의 `projectId` 속성을 검색·비교 가능한 독립 Entity로 승격)
-- 기술 스택 관리
-- Language
-- Runtime
-- Framework
-- ORM
-- Database
-- Build Tool
+- Project Entity (MVP의 `projectId` 속성을 검색·비교 가능한 독립 Entity로 승격) — **구현됨**, ADR-0004
+- 기술 스택 관리 — **구현됨**, ADR-0005
+  - Language
+  - Runtime
+  - Framework
+  - ORM
+  - Database
+  - Build Tool
 
 ### 기대 효과
 

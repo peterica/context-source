@@ -97,4 +97,15 @@ CREATE TABLE IF NOT EXISTS analysis_failure (
 
   PRIMARY KEY (run_id, file_path)
 );
+
+-- ADR-0005: 기술 스택 관리. 새 테이블이라 컬럼 추가와 달리 마이그레이션이 필요 없다
+-- (CREATE TABLE IF NOT EXISTS만으로 기존 DB에도 안전하게 적용됨).
+CREATE TABLE IF NOT EXISTS project_tech_stack (
+  project_id TEXT NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+  category   TEXT NOT NULL CHECK (category IN
+               ('language','runtime','framework','orm','database','build_tool')),
+  value      TEXT NOT NULL,
+
+  PRIMARY KEY (project_id, category, value)
+);
 `;

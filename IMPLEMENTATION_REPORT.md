@@ -282,3 +282,21 @@ MVP(Phase 1) 완료 이후, 사용자 요청에 따라 [ROADMAP.md](./ROADMAP.md
 **의도적으로 하지 않은 것** (ADR-0004에 명시): 기술 스택 메타데이터 수집, 유사 프로젝트 탐색, 프로젝트 간 관계 분석, MCP의 다중 프로젝트 파라미터화. 이들은 Project Entity가 자리잡은 뒤의 후속 과제다.
 
 **알려진 제한**: workspace-root 상대 경로 등록 방식은 Docker에서 "여러 프로젝트가 같은 상위 디렉터리 아래 있어야 한다"는 제약을 만든다(README §Docker Compose 참고). 서로 다른 최상위 디렉터리에 있는 프로젝트를 등록하려면 그 디렉터리들을 포함하는 더 상위 경로를 workspace-root로 잡거나, 컨테이너 재시작 시 마운트를 바꿔야 한다.
+
+---
+
+## 13. 부록 — Phase 2 계속: 기술 스택 관리 (2026-08-11)
+
+Project Entity 다음으로 ROADMAP.md Phase 2의 "기술 스택 관리"를 구현했다. 설계는 [ADR-0005](./docs/adr/0005-tech-stack-management.md)에 기록했다.
+
+**구현 요약**
+
+- 새 테이블 `project_tech_stack` (project_id, category, value) — category는 `language`/`runtime`/`framework`/`orm`/`database`/`build_tool` 6종으로 고정. 새 테이블이라 `CREATE TABLE IF NOT EXISTS`만으로 기존 DB에도 안전하게 적용되며 별도 마이그레이션이 필요 없다.
+- `package.json` 기반 자동 감지(`detectTechStack`) — `language: TypeScript`/`runtime: Node.js`는 항상 고정으로 추가하고, `dependencies`/`devDependencies`의 알려진 패키지 이름(react/express/@nestjs/core/typeorm/prisma/pg/mysql2/vite/webpack 등)을 category별로 매핑한다. 네트워크 호출이나 버전 파싱 없이 로컬 파일만 읽는다.
+- API: `GET/POST/DELETE /projects/{id}/tech-stack`(개별 추가·삭제, chip UI에 맞춘 idempotent 설계), `POST /projects/{id}/tech-stack/detect`(자동 감지 결과를 기존 항목과 병합 — 수동으로 추가한 항목을 지우지 않음).
+- Web UI: Overview 화면에 카테고리별 chip 편집 패널(추가/삭제/자동 감지 버튼)을 추가하고, 프로젝트 목록 화면의 각 행에 기술 스택 배지를 표시해 여러 프로젝트를 훑어볼 때 바로 눈에 띄도록 했다.
+- core 9개 + api 8개, 총 17개 신규 테스트. 실제 브라우저(Playwright)로 자동 감지 → 수동 추가 → 삭제 → 프로젝트 목록 배지 반영까지 전 과정을 확인했다(콘솔 에러 0건).
+
+**의도적으로 하지 않은 것** (ADR-0005에 명시): 기술 스택 기반 프로젝트 검색/유사 프로젝트 탐색(다음 Phase 2 과제), npm 레지스트리 조회나 버전 파싱, TypeScript/Node.js 이외 스택(Java/Spring 등) 감지.
+
+**알려진 제한**: 자동 감지 매핑 목록은 의도적으로 짧다(주요 프레임워크/ORM/DB 드라이버/빌드 도구 위주) — 목록에 없는 패키지는 감지되지 않으며 수동으로 추가해야 한다.

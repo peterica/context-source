@@ -69,6 +69,14 @@ export {
   type ProjectSummary,
 } from './query/project-queries.js';
 
+export {
+  listTechStack,
+  addTechStackEntry,
+  removeTechStackEntry,
+  mergeTechStack,
+} from './storage/tech-stack-repo.js';
+export { detectTechStack } from './tech-stack-detect.js';
+
 export { runFullAnalysis, type RunFullAnalysisOptions } from './orchestrator.js';
 
 export {

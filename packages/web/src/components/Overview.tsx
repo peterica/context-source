@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, type ProjectStats } from '../api/client.js';
 import type { AnalysisRun } from '@contextsource/core';
+import { TechStackEditor } from './TechStackEditor.js';
 
 const KIND_LABEL: Record<string, string> = {
   file: 'File',
@@ -35,6 +36,10 @@ export function Overview(props: {
 
   return (
     <div>
+      <div style={{ marginBottom: 20 }}>
+        <TechStackEditor projectId={props.projectId} />
+      </div>
+
       <h2 className="section-title">Entity / Relationship / Evidence 통계</h2>
       <div className="stat-grid" style={{ marginBottom: 20 }}>
         <div className="stat-tile">

@@ -7,6 +7,8 @@ import type {
   Relationship,
   RelationshipType,
   Resolution,
+  TechStackCategory,
+  TechStackEntry,
 } from '@contextsource/core';
 
 const API_BASE =
@@ -68,6 +70,7 @@ export interface ProjectSummary {
   entityCount: number;
   relationshipCount: number;
   lastRun: AnalysisRun | null;
+  techStack: TechStackEntry[];
 }
 
 export interface CreateProjectPayload {
@@ -175,4 +178,20 @@ export const api = {
 
   triggerRun: (projectId: string, mode: AnalysisRunMode) =>
     send<{ runId: string }>('POST', `/projects/${projectId}/analysis/runs`, { mode }),
+
+  // ── 기술 스택 (ADR-0005) ────────────────────────────────────────────────
+  getTechStack: (projectId: string) =>
+    request<{ items: TechStackEntry[] }>(`/projects/${projectId}/tech-stack`),
+
+  addTechStackEntry: (projectId: string, category: TechStackCategory, value: string) =>
+    send<{ items: TechStackEntry[] }>('POST', `/projects/${projectId}/tech-stack`, { category, value }),
+
+  removeTechStackEntry: (projectId: string, category: TechStackCategory, value: string) =>
+    send<void>('DELETE', `/projects/${projectId}/tech-stack`, { category, value }),
+
+  detectTechStack: (projectId: string) =>
+    send<{ items: TechStackEntry[]; added: TechStackEntry[] }>(
+      'POST',
+      `/projects/${projectId}/tech-stack/detect`,
+    ),
 };

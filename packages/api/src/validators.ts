@@ -1,4 +1,4 @@
-import type { EntityKind, RelationshipType, Resolution } from '@contextsource/core';
+import type { EntityKind, RelationshipType, Resolution, TechStackCategory } from '@contextsource/core';
 import { ApiError } from './errors.js';
 
 const ENTITY_KINDS: EntityKind[] = [
@@ -8,6 +8,14 @@ const ENTITY_KINDS: EntityKind[] = [
   'function',
   'method',
   'external_module',
+];
+const TECH_STACK_CATEGORIES: TechStackCategory[] = [
+  'language',
+  'runtime',
+  'framework',
+  'orm',
+  'database',
+  'build_tool',
 ];
 const RELATIONSHIP_TYPES: RelationshipType[] = [
   'DECLARES',
@@ -104,6 +112,24 @@ export function parseOptionalString(raw: unknown, field: string): string | undef
     throw new ApiError('INVALID_PARAM', `${field} must be a string`);
   }
   return raw;
+}
+
+export function requireTechStackCategory(raw: unknown): TechStackCategory {
+  if (typeof raw !== 'string' || !TECH_STACK_CATEGORIES.includes(raw as TechStackCategory)) {
+    throw new ApiError(
+      'INVALID_PARAM',
+      `category must be one of ${TECH_STACK_CATEGORIES.join(', ')}`,
+    );
+  }
+  return raw as TechStackCategory;
+}
+
+export function requireTechStackValue(raw: unknown): string {
+  const value = requireNonEmptyString(raw, 'value');
+  if (value.length > 50) {
+    throw new ApiError('INVALID_PARAM', 'value must be 50 characters or fewer');
+  }
+  return value;
 }
 
 export function parseProjectId(raw: unknown): string | undefined {

@@ -12,6 +12,7 @@ import {
 } from '../src/storage/project-repo.js';
 import { listProjectsWithStats, getProjectSummary } from '../src/query/project-queries.js';
 import { insertEntities } from '../src/storage/ingest.js';
+import { addTechStackEntry } from '../src/storage/tech-stack-repo.js';
 import type { Entity } from '../src/types.js';
 
 function freshDb(): Db {
@@ -152,6 +153,28 @@ describe('listProjectsWithStats / getProjectSummary', () => {
     const single = getProjectSummary(db, 'a');
     expect(single?.entityCount).toBe(1);
     expect(getProjectSummary(db, 'nope')).toBeUndefined();
+  });
+
+  it('includes each project\'s tech stack without a per-project query (avoids N+1)', () => {
+    const db = freshDb();
+    createProject(db, { id: 'a', name: 'A', rootPath: '/a', tsconfigPath: '/a/tsconfig.json' });
+    createProject(db, { id: 'b', name: 'B', rootPath: '/b', tsconfigPath: '/b/tsconfig.json' });
+    addTechStackEntry(db, 'a', { category: 'framework', value: 'React' });
+    addTechStackEntry(db, 'a', { category: 'language', value: 'TypeScript' });
+
+    const summaries = listProjectsWithStats(db);
+    const a = summaries.find((s) => s.project.id === 'a')!;
+    const b = summaries.find((s) => s.project.id === 'b')!;
+    expect(a.techStack).toEqual([
+      { category: 'framework', value: 'React' },
+      { category: 'language', value: 'TypeScript' },
+    ]);
+    expect(b.techStack).toEqual([]);
+
+    expect(getProjectSummary(db, 'a')?.techStack).toEqual([
+      { category: 'framework', value: 'React' },
+      { category: 'language', value: 'TypeScript' },
+    ]);
   });
 });
 

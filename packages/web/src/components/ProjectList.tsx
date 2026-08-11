@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, type ProjectSummary } from '../api/client.js';
+import type { TechStackEntry } from '@contextsource/core';
 
 export function ProjectList(props: { onSelect: (projectId: string) => void }) {
   const [summaries, setSummaries] = useState<ProjectSummary[]>([]);
@@ -62,6 +63,7 @@ export function ProjectList(props: { onSelect: (projectId: string) => void }) {
               <tr>
                 <th>이름</th>
                 <th>경로</th>
+                <th>기술 스택</th>
                 <th>Entities</th>
                 <th>Relationships</th>
                 <th>마지막 분석</th>
@@ -78,6 +80,9 @@ export function ProjectList(props: { onSelect: (projectId: string) => void }) {
                     )}
                   </td>
                   <td style={{ fontSize: 12, color: 'var(--text-dim)' }}>{s.project.rootPath}</td>
+                  <td>
+                    <TechStackBadges entries={s.techStack} />
+                  </td>
                   <td>{s.entityCount}</td>
                   <td>{s.relationshipCount}</td>
                   <td>
@@ -100,6 +105,27 @@ export function ProjectList(props: { onSelect: (projectId: string) => void }) {
         )}
       </div>
     </div>
+  );
+}
+
+// listProjectsWithStats가 프로젝트 목록과 함께 기술 스택을 한 번에 내려주므로(N+1 방지),
+// 이 컴포넌트는 별도 요청 없이 받은 값만 그린다.
+function TechStackBadges(props: { entries: TechStackEntry[] }) {
+  const values = props.entries.map((e) => e.value);
+
+  if (values.length === 0) return <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>-</span>;
+
+  const shown = values.slice(0, 4);
+  const rest = values.length - shown.length;
+  return (
+    <span>
+      {shown.map((v) => (
+        <span key={v} className="badge kind" style={{ marginRight: 4 }}>
+          {v}
+        </span>
+      ))}
+      {rest > 0 && <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>+{rest}</span>}
+    </span>
   );
 }
 

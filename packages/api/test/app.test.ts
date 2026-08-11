@@ -82,13 +82,14 @@ async function postJson(pathAndQuery: string, payload: unknown) {
 }
 
 describe('Project registry (ADR-0004)', () => {
-  it('GET /projects lists registered projects with stats', async () => {
+  it('GET /projects lists registered projects with stats and tech stack (no N+1 fetch needed)', async () => {
     const { status, body } = await getJson('/projects');
     expect(status).toBe(200);
     const item = body.items.find((i: any) => i.project.id === PROJECT);
     expect(item).toBeDefined();
     expect(item.entityCount).toBeGreaterThan(0);
     expect(item.relationshipCount).toBeGreaterThan(0);
+    expect(item.techStack).toEqual([]);
   });
 
   it('GET /projects/{id} returns a single project summary', async () => {

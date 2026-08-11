@@ -1,8 +1,10 @@
 import * as path from 'node:path';
 import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 import {
+  addTechStackEntry,
   createProject,
   deleteProject,
+  detectTechStack,
   generateProjectId,
   getEntity,
   getProjectSummary,
@@ -17,7 +19,10 @@ import {
   listInferredRelationships,
   listProjectsWithStats,
   listRuns,
+  listTechStack,
+  mergeTechStack,
   projectExists,
+  removeTechStackEntry,
   runFullAnalysis,
   runIncrementalAnalysis,
   searchEntities,
@@ -43,6 +48,8 @@ import {
   parseResolution,
   parseTypes,
   requireNonEmptyString,
+  requireTechStackCategory,
+  requireTechStackValue,
 } from './validators.js';
 
 export interface AppContext {
@@ -342,6 +349,52 @@ export function createApp(ctx: AppContext): Express {
           parseOffset(req.query.offset),
         ),
       );
+    }),
+  );
+
+  // 기술 스택 — ADR-0005
+  projectRouter.get(
+    '/tech-stack',
+    asyncHandler((req, res) => {
+      const project = requireProject(ctx.db, req.params.projectId!);
+      res.json({ items: listTechStack(ctx.db, project.id) });
+    }),
+  );
+
+  projectRouter.post(
+    '/tech-stack',
+    asyncHandler((req, res) => {
+      const project = requireProject(ctx.db, req.params.projectId!);
+      const body = (req.body ?? {}) as Record<string, unknown>;
+      const category = requireTechStackCategory(body.category);
+      const value = requireTechStackValue(body.value);
+      addTechStackEntry(ctx.db, project.id, { category, value });
+      res.status(201).json({ items: listTechStack(ctx.db, project.id) });
+    }),
+  );
+
+  projectRouter.delete(
+    '/tech-stack',
+    asyncHandler((req, res) => {
+      const project = requireProject(ctx.db, req.params.projectId!);
+      const body = (req.body ?? {}) as Record<string, unknown>;
+      const category = requireTechStackCategory(body.category);
+      const value = requireTechStackValue(body.value);
+      removeTechStackEntry(ctx.db, project.id, { category, value });
+      res.status(204).end();
+    }),
+  );
+
+  projectRouter.post(
+    '/tech-stack/detect',
+    asyncHandler((req, res) => {
+      const project = requireProject(ctx.db, req.params.projectId!);
+      const before = new Set(listTechStack(ctx.db, project.id).map((e) => `${e.category}:${e.value}`));
+      const detected = detectTechStack(project);
+      mergeTechStack(ctx.db, project.id, detected);
+      const items = listTechStack(ctx.db, project.id);
+      const added = items.filter((e) => !before.has(`${e.category}:${e.value}`));
+      res.json({ items, added });
     }),
   );
 

@@ -117,3 +117,11 @@ export interface UpdateProjectInput {
 }
 
 export const ANALYZER_ID = 'ts-analyzer@0.1.0';
+
+// ADR-0005: 기술 스택 관리
+export type TechStackCategory = 'language' | 'runtime' | 'framework' | 'orm' | 'database' | 'build_tool';
+
+export interface TechStackEntry {
+  category: TechStackCategory;
+  value: string;
+}

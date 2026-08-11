@@ -84,10 +84,11 @@ async function postRun(mode: string) {
 }
 
 describe('POST /projects/{id}/analysis/runs (mode=incremental)', () => {
-  it('mode=incremental before any full scan returns 400 INVALID_PARAM', async () => {
+  it('mode=incremental before any full scan returns 400 INVALID_PARAM with a Korean message', async () => {
     const { status, body } = await postRun('incremental');
     expect(status).toBe(400);
     expect(body.error.code).toBe('INVALID_PARAM');
+    expect(body.error.message).toMatch(/[가-힣]/); // UX audit P0-2: was a raw English exception string
   });
 
   it('full scan then incremental scan after a new commit works end-to-end', async () => {

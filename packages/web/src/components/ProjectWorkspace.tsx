@@ -91,7 +91,12 @@ export function ProjectWorkspace(props: {
         </nav>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {runError && <span style={{ color: 'var(--danger)', fontSize: 12 }}>{runError}</span>}
-          <button className="btn secondary" disabled={running} onClick={() => triggerRun('incremental')}>
+          <button
+            className="btn secondary"
+            disabled={running || !lastRun}
+            title={!lastRun ? '먼저 전체 분석을 1회 실행해야 합니다' : undefined}
+            onClick={() => triggerRun('incremental')}
+          >
             {running ? '실행 중…' : '증분 분석'}
           </button>
           <button className="btn" disabled={running} onClick={() => triggerRun('full')}>

@@ -30,7 +30,7 @@ export function runIncrementalAnalysis(options: RunIncrementalAnalysisOptions): 
   const lastRun = getLastCompletedRun(db, projectId);
   if (!lastRun) {
     throw Object.assign(
-      new Error('No completed full scan found — run a full scan before incremental analysis'),
+      new Error('완료된 전체 분석이 없습니다 — 증분 분석 전에 전체 분석을 먼저 실행하세요'),
       { code: 'INVALID_PARAM' },
     );
   }

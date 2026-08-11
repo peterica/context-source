@@ -27,12 +27,18 @@ beforeAll(async () => {
       tsconfigPath: path.join(workspaceRoot, id, 'tsconfig.json'),
     });
   }
-  // a, b share React + TypeScript; c shares only TypeScript with a; d has no tech stack.
+  // a, b share React (plus the universal language/runtime tags every project gets via auto-detect);
+  // c only has the universal language/runtime tags — no meaningful overlap with a, so it must be
+  // excluded (regression for the 2026-08-11 fix: language/runtime no longer contribute to score);
+  // d has no tech stack at all.
   addTechStackEntry(db, 'a', { category: 'framework', value: 'React' });
   addTechStackEntry(db, 'a', { category: 'language', value: 'TypeScript' });
+  addTechStackEntry(db, 'a', { category: 'runtime', value: 'Node.js' });
   addTechStackEntry(db, 'b', { category: 'framework', value: 'React' });
   addTechStackEntry(db, 'b', { category: 'language', value: 'TypeScript' });
+  addTechStackEntry(db, 'b', { category: 'runtime', value: 'Node.js' });
   addTechStackEntry(db, 'c', { category: 'language', value: 'TypeScript' });
+  addTechStackEntry(db, 'c', { category: 'runtime', value: 'Node.js' });
 
   const app = createApp({ db, workspaceRoot });
   await new Promise<void>((resolve) => {
@@ -57,24 +63,27 @@ describe('GET /projects/{id}/similar (ADR-0006)', () => {
   it('ranks by shared tech-stack tag count and includes the shared tags as evidence', async () => {
     const { status, body } = await getJson('/projects/a/similar');
     expect(status).toBe(200);
-    expect(body.items.map((it: any) => it.project.id)).toEqual(['b', 'c']);
-    expect(body.items[0].score).toBe(2);
-    expect(body.items[0].sharedTechStack).toEqual([
-      { category: 'framework', value: 'React' },
-      { category: 'language', value: 'TypeScript' },
-    ]);
-    expect(body.items[1].score).toBe(1);
+    expect(body.items.map((it: any) => it.project.id)).toEqual(['b']);
+    expect(body.items[0].score).toBe(1);
+    expect(body.items[0].sharedTechStack).toEqual([{ category: 'framework', value: 'React' }]);
   });
 
-  it('excludes projects with zero overlap and the target itself', async () => {
+  it('excludes projects sharing only the universal language/runtime tags, zero overlap, and the target itself', async () => {
     const { body } = await getJson('/projects/a/similar');
     const ids = body.items.map((it: any) => it.project.id);
     expect(ids).not.toContain('a');
+    expect(ids).not.toContain('c'); // regression: language/runtime alone must not count
     expect(ids).not.toContain('d');
   });
 
   it('returns an empty list for a project with no tech stack', async () => {
     const { status, body } = await getJson('/projects/d/similar');
+    expect(status).toBe(200);
+    expect(body.items).toEqual([]);
+  });
+
+  it('returns an empty list for a project whose only tags are the universal language/runtime ones', async () => {
+    const { status, body } = await getJson('/projects/c/similar');
     expect(status).toBe(200);
     expect(body.items).toEqual([]);
   });

@@ -61,3 +61,11 @@ GET /projects/{id}/similar?limit=10
 - 코드 유사도, 임베딩, 벡터 인덱스(Phase 3 범위, 이번에 착수하지 않음)
 - Project를 그래프 순회 가능한 노드로 만드는 것
 - 기술 스택 외의 요인(코드 규모, 아키텍처 패턴 등)을 유사도에 반영하는 것 — 범위를 명확하고 설명 가능하게 유지한다
+
+## 수정 이력 — 2026-08-11: language/runtime 제외 (스코어링 결함 수정)
+
+경쟁 벤치마킹 검토(서브에이전트 독립 검증)에서 실제 설계 결함을 발견했다: `detectTechStack()`(ADR-0005)은 모든 프로젝트에 예외 없이 `language: TypeScript`/`runtime: Node.js`를 부여한다 — 현재 시스템이 TypeScript/Node.js 전용이라 이 두 값은 사실상 상수다. 원래의 §1 정의(`score = |tech_stack(A) ∩ tech_stack(B)|`)를 그대로 적용하면, 프레임워크·ORM·데이터베이스가 전혀 겹치지 않는 두 프로젝트도 이 상수 태그 2개 때문에 항상 최소 2점의 "유사도"를 갖는 결함이 있었다 — 사실상 무관한 프로젝트를 "유사"로 잘못 판정.
+
+**수정**: `findSimilarProjects`의 교집합 계산에서 `language`/`runtime` 카테고리를 제외한다(`SIMILARITY_IGNORED_CATEGORIES`, `packages/core/src/query/project-queries.ts`). Framework/ORM/Database/Build Tool만 유사도에 반영된다 — 이 4개 카테고리는 프로젝트마다 실제로 다르게 나타나는(opt-in) 신호이기 때문이다. `language`/`runtime` 태그 자체는 여전히 기술 스택 목록에는 표시되지만(정보로서는 유효), 유사도 점수·공유 태그 근거에는 포함되지 않는다. 두 프로젝트가 `language`/`runtime`만 공유하고 나머지가 전부 다르면 이제 유사 프로젝트 목록에서 완전히 제외된다(회귀 테스트: `packages/core/test/project-repo.test.ts`, `packages/api/test/similar-projects.test.ts`).
+
+다국어 지원이 추가되어 `language`/`runtime`이 실제로 프로젝트마다 달라지는 시점이 오면, 이 제외 목록은 재검토가 필요하다.

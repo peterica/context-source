@@ -186,49 +186,67 @@ describe('findSimilarProjects (ADR-0006)', () => {
     createProject(db, { id: 'c', name: 'C', rootPath: '/c', tsconfigPath: '/c/tsconfig.json' });
     createProject(db, { id: 'd', name: 'D', rootPath: '/d', tsconfigPath: '/d/tsconfig.json' });
 
-    // a: React + TypeScript + Express
+    // a: React + Express + TypeScript/Node.js (every project gets the latter two via auto-detect)
     addTechStackEntry(db, 'a', { category: 'framework', value: 'React' });
     addTechStackEntry(db, 'a', { category: 'language', value: 'TypeScript' });
+    addTechStackEntry(db, 'a', { category: 'runtime', value: 'Node.js' });
     addTechStackEntry(db, 'a', { category: 'framework', value: 'Express' });
-    // b: shares all 3 with a
+    // b: shares both meaningful tags with a (plus the universal language/runtime tags)
     addTechStackEntry(db, 'b', { category: 'framework', value: 'React' });
     addTechStackEntry(db, 'b', { category: 'language', value: 'TypeScript' });
+    addTechStackEntry(db, 'b', { category: 'runtime', value: 'Node.js' });
     addTechStackEntry(db, 'b', { category: 'framework', value: 'Express' });
-    // c: shares only TypeScript with a
+    // c: shares only one meaningful tag (React) with a
+    addTechStackEntry(db, 'c', { category: 'framework', value: 'React' });
     addTechStackEntry(db, 'c', { category: 'language', value: 'TypeScript' });
-    // d: no tech stack at all -> no overlap, excluded
+    // d: only the universal language/runtime tags, no meaningful overlap -> excluded (regression for
+    // the 2026-08-11 scoring defect where every TS/Node project had a nonzero baseline similarity)
+    addTechStackEntry(db, 'd', { category: 'language', value: 'TypeScript' });
+    addTechStackEntry(db, 'd', { category: 'runtime', value: 'Node.js' });
 
     const results = findSimilarProjects(db, 'a', 10);
     expect(results.map((r) => r.project.id)).toEqual(['b', 'c']);
-    expect(results[0].score).toBe(3);
+    expect(results[0].score).toBe(2);
     expect(results[0].sharedTechStack).toEqual([
       { category: 'framework', value: 'Express' },
       { category: 'framework', value: 'React' },
-      { category: 'language', value: 'TypeScript' },
     ]);
     expect(results[1].score).toBe(1);
     expect(results.some((r) => r.project.id === 'a')).toBe(false);
     expect(results.some((r) => r.project.id === 'd')).toBe(false);
   });
 
+  it('ignores language/runtime tags entirely — projects sharing only those get zero score, not a baseline', () => {
+    const db = freshDb();
+    createProject(db, { id: 'a', name: 'A', rootPath: '/a', tsconfigPath: '/a/tsconfig.json' });
+    createProject(db, { id: 'b', name: 'B', rootPath: '/b', tsconfigPath: '/b/tsconfig.json' });
+    // both are plain auto-detected TS/Node projects with nothing else in common
+    addTechStackEntry(db, 'a', { category: 'language', value: 'TypeScript' });
+    addTechStackEntry(db, 'a', { category: 'runtime', value: 'Node.js' });
+    addTechStackEntry(db, 'b', { category: 'language', value: 'TypeScript' });
+    addTechStackEntry(db, 'b', { category: 'runtime', value: 'Node.js' });
+
+    expect(findSimilarProjects(db, 'a', 10)).toEqual([]);
+  });
+
   it('respects the limit parameter', () => {
     const db = freshDb();
     createProject(db, { id: 'a', name: 'A', rootPath: '/a', tsconfigPath: '/a/tsconfig.json' });
-    addTechStackEntry(db, 'a', { category: 'language', value: 'TypeScript' });
+    addTechStackEntry(db, 'a', { category: 'framework', value: 'React' });
     for (const id of ['b', 'c', 'd']) {
       createProject(db, { id, name: id.toUpperCase(), rootPath: `/${id}`, tsconfigPath: `/${id}/tsconfig.json` });
-      addTechStackEntry(db, id, { category: 'language', value: 'TypeScript' });
+      addTechStackEntry(db, id, { category: 'framework', value: 'React' });
     }
 
     const results = findSimilarProjects(db, 'a', 2);
     expect(results).toHaveLength(2);
   });
 
-  it('returns an empty array when the target project has no tech stack or does not exist', () => {
+  it('returns an empty array when the target project has no meaningful tech stack or does not exist', () => {
     const db = freshDb();
     createProject(db, { id: 'a', name: 'A', rootPath: '/a', tsconfigPath: '/a/tsconfig.json' });
     createProject(db, { id: 'b', name: 'B', rootPath: '/b', tsconfigPath: '/b/tsconfig.json' });
-    addTechStackEntry(db, 'b', { category: 'language', value: 'TypeScript' });
+    addTechStackEntry(db, 'b', { category: 'framework', value: 'React' });
 
     expect(findSimilarProjects(db, 'a', 10)).toEqual([]);
     expect(findSimilarProjects(db, 'nope', 10)).toEqual([]);

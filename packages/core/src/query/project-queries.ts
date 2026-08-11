@@ -93,6 +93,14 @@ export interface SimilarProject {
 }
 
 /**
+ * language/runtime은 detectTechStack()이 모든 프로젝트에 무조건 TypeScript/Node.js를
+ * 부여한다(현재 시스템이 TS/Node 전용이라 변별력이 없는 상수값) — 유사도 계산에서 제외한다.
+ * 이 카테고리를 포함하면 서로 무관한 두 프로젝트도 항상 최소 2점의 baseline 유사도를
+ * 갖게 되는 결함이 있었다 (2026-08-11 벤치마크 검토에서 발견).
+ */
+const SIMILARITY_IGNORED_CATEGORIES = new Set<TechStackEntry['category']>(['language', 'runtime']);
+
+/**
  * 기술 스택 태그 교집합 기반 유사 프로젝트 탐색 (ADR-0006). Vector Search나 Project 간
  * 영속적인 관계(그래프 엣지)를 쓰지 않는다 — 조회 시점에 계산되는 파생 순위일 뿐이다.
  * project_tech_stack을 프로젝트마다 반복 조회하지 않고 한 번에 읽어 N+1을 피한다.
@@ -102,14 +110,20 @@ export function findSimilarProjects(db: Db, projectId: string, limit: number): S
   if (!target) return [];
 
   const techStackByProject = loadTechStackByProject(db);
-  const targetTags = new Set((techStackByProject.get(projectId) ?? []).map((e) => `${e.category}:${e.value}`));
+  const targetTags = new Set(
+    (techStackByProject.get(projectId) ?? [])
+      .filter((e) => !SIMILARITY_IGNORED_CATEGORIES.has(e.category))
+      .map((e) => `${e.category}:${e.value}`),
+  );
   if (targetTags.size === 0) return [];
 
   const results: SimilarProject[] = [];
   for (const project of listProjects(db)) {
     if (project.id === projectId) continue;
     const candidateTags = techStackByProject.get(project.id) ?? [];
-    const sharedTechStack = candidateTags.filter((e) => targetTags.has(`${e.category}:${e.value}`));
+    const sharedTechStack = candidateTags.filter(
+      (e) => !SIMILARITY_IGNORED_CATEGORIES.has(e.category) && targetTags.has(`${e.category}:${e.value}`),
+    );
     if (sharedTechStack.length === 0) continue;
     results.push({ project, sharedTechStack, score: sharedTechStack.length });
   }

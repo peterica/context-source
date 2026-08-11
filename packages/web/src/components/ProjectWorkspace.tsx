@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client.js';
+import { formatRevision } from '../format.js';
 import type { AnalysisRun, Project } from '@contextsource/core';
 import { Overview } from './Overview.js';
 import { Explore } from './Explore.js';
@@ -69,7 +70,7 @@ export function ProjectWorkspace(props: {
             <h1>ContextSource{project ? ` — ${project.name}` : ''}</h1>
             <div className="sub">
               {lastRun
-                ? `마지막 분석: ${lastRun.mode} · ${lastRun.revision.slice(0, 10)} · entities ${lastRun.entityCount} · relationships ${lastRun.relationshipCount}`
+                ? `마지막 분석: ${lastRun.mode} · ${formatRevision(lastRun.revision)} · entities ${lastRun.entityCount} · relationships ${lastRun.relationshipCount}`
                 : '분석 이력 없음 — 전체 분석을 실행하세요'}
             </div>
           </div>

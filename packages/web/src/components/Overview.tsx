@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, type ProjectStats } from '../api/client.js';
+import { formatRevision } from '../format.js';
 import type { AnalysisRun } from '@contextsource/core';
 import { TechStackEditor } from './TechStackEditor.js';
 import { SimilarProjects } from './SimilarProjects.js';
@@ -127,7 +128,7 @@ export function Overview(props: {
                 <tr key={f.filePath}>
                   <td>{f.filePath}</td>
                   <td>{f.message}</td>
-                  <td>{f.preservedRevision ? f.preservedRevision.slice(0, 10) : '(없음)'}</td>
+                  <td>{f.preservedRevision ? formatRevision(f.preservedRevision) : '(없음)'}</td>
                 </tr>
               ))}
             </tbody>

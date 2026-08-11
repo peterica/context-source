@@ -1,4 +1,5 @@
 import type { Relationship } from '@contextsource/core';
+import { formatRevision } from '../format.js';
 
 export function EvidencePanel(props: { relationship: Relationship; sourceLabel: string; targetLabel: string }) {
   const { relationship } = props;
@@ -15,7 +16,7 @@ export function EvidencePanel(props: { relationship: Relationship; sourceLabel: 
         <div key={ev.id} style={{ marginBottom: 10 }}>
           <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>
             {ev.filePath}:{ev.range.startLine}:{ev.range.startCol} – {ev.range.endLine}:{ev.range.endCol}{' '}
-            · {ev.analyzer} · rev {ev.revision.slice(0, 10)}
+            · {ev.analyzer} · rev {formatRevision(ev.revision)}
           </div>
           <div className="evidence-snippet">{ev.snippet}</div>
         </div>

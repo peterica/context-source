@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, type ProjectSummary } from '../api/client.js';
+import { formatRevision } from '../format.js';
 import type { TechStackEntry } from '@contextsource/core';
 
 export function ProjectList(props: { onSelect: (projectId: string) => void }) {
@@ -116,7 +117,7 @@ export function ProjectList(props: { onSelect: (projectId: string) => void }) {
                       <span style={{ color: 'var(--text-dim)' }}>분석 안 됨</span>
                     )}
                   </td>
-                  <td style={{ fontSize: 12 }}>{s.lastRun?.revision.slice(0, 10) ?? '-'}</td>
+                  <td style={{ fontSize: 12 }}>{s.lastRun ? formatRevision(s.lastRun.revision) : '-'}</td>
                 </tr>
               ))}
             </tbody>

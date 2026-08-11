@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from 'react';
 import type { AnalysisRun } from '@contextsource/core';
 import { api } from '../api/client.js';
+import { formatRevision } from '../format.js';
 
 export function RunHistory(props: { projectId: string; refreshKey: number }) {
   const [runs, setRuns] = useState<AnalysisRun[]>([]);
@@ -44,7 +45,7 @@ export function RunHistory(props: { projectId: string; refreshKey: number }) {
                     <td>
                       <span className={`badge ${r.status === 'completed' ? 'static' : 'fail'}`}>{r.status}</span>
                     </td>
-                    <td>{r.revision.slice(0, 10)}</td>
+                    <td>{formatRevision(r.revision)}</td>
                     <td>{r.entityCount ?? '-'}</td>
                     <td>{r.relationshipCount ?? '-'}</td>
                     <td>{r.failures.length > 0 ? `${r.failures.length} ▾` : '0'}</td>
@@ -58,7 +59,7 @@ export function RunHistory(props: { projectId: string; refreshKey: number }) {
                               <tr key={f.filePath}>
                                 <td>{f.filePath}</td>
                                 <td>{f.message}</td>
-                                <td>{f.preservedRevision ? f.preservedRevision.slice(0, 10) : '(없음)'}</td>
+                                <td>{f.preservedRevision ? formatRevision(f.preservedRevision) : '(없음)'}</td>
                               </tr>
                             ))}
                           </tbody>

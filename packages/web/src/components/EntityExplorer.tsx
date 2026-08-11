@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Entity, Relationship } from '@contextsource/core';
 import { api, encodeEntityId } from '../api/client.js';
+import { formatRevision } from '../format.js';
 import { ImpactGraph } from './ImpactGraph.js';
 import { EvidencePanel } from './EvidencePanel.js';
 
@@ -52,7 +53,7 @@ export function EntityExplorer(props: {
         <strong style={{ fontSize: 16 }}>{entity.name}</strong>
         <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 4 }}>
           {entity.filePath ? `${entity.filePath}${entity.range ? `:${entity.range.startLine}-${entity.range.endLine}` : ''}` : '(external package)'}
-          {entity.revision && ` · rev ${entity.revision.slice(0, 10)}`}
+          {entity.revision && ` · rev ${formatRevision(entity.revision)}`}
         </div>
         <div style={{ marginTop: 6, fontSize: 12 }}>
           들어오는 관계 {counts?.in ?? 0} · 나가는 관계 {counts?.out ?? 0}

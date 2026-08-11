@@ -180,3 +180,9 @@ AI Context Engine
 - BENCHMARK-PROMPT.md : 다른 프로젝트에 적용할 경쟁 벤치마킹 재사용 프롬프트
 - docs/adr/ : 기술 스택·설계 결정 기록 (ADR)
 - IMPLEMENTATION_REPORT.md : 구현 요약, 아키텍처, FR별 구현 상태, 테스트 결과, 알려진 제한사항
+
+---
+
+## 라이선스
+
+[MIT License](./LICENSE) (2026-08-12부터 적용, BENCHMARK.md 5.19).

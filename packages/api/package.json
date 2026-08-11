@@ -2,6 +2,7 @@
   "name": "@contextsource/api",
   "version": "0.4.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
   "scripts": {

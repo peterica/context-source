@@ -2,6 +2,7 @@
   "name": "@contextsource/cli",
   "version": "0.4.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "bin": {
     "contextsource": "./dist/index.js"

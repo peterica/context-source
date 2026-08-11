@@ -3,8 +3,17 @@ import { api, type ProjectSummary } from '../api/client.js';
 import { formatRevision } from '../format.js';
 import type { TechStackEntry } from '@contextsource/core';
 
+// s.project.rootPath가 매 행마다 동일한 workspace root 접두어를 반복 노출해 가독성을 떨어뜨렸다
+// (UX 감사 P1-9). workspaceRoot를 알면 그 접두어를 생략하고 상대 경로만 보여줄 수 있다.
+function relativeToWorkspace(absPath: string, workspaceRoot: string | null): string {
+  if (!workspaceRoot || !absPath.startsWith(workspaceRoot)) return absPath;
+  const rest = absPath.slice(workspaceRoot.length).replace(/^\/+/, '');
+  return rest || '.';
+}
+
 export function ProjectList(props: { onSelect: (projectId: string) => void }) {
   const [summaries, setSummaries] = useState<ProjectSummary[]>([]);
+  const [workspaceRoot, setWorkspaceRoot] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [techStackFilter, setTechStackFilter] = useState('');
@@ -18,6 +27,13 @@ export function ProjectList(props: { onSelect: (projectId: string) => void }) {
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, [refreshKey]);
 
+  useEffect(() => {
+    api
+      .getWorkspace()
+      .then((res) => setWorkspaceRoot(res.root))
+      .catch(() => setWorkspaceRoot(null));
+  }, []);
+
   const allTechStackValues = Array.from(
     new Set(summaries.flatMap((s) => s.techStack.map((e) => e.value))),
   ).sort((a, b) => a.localeCompare(b));
@@ -27,6 +43,7 @@ export function ProjectList(props: { onSelect: (projectId: string) => void }) {
       s.project.name.toLowerCase().includes(query.toLowerCase()) &&
       (techStackFilter === '' || s.techStack.some((e) => e.value === techStackFilter)),
   );
+  const isFiltered = query.trim() !== '' || techStackFilter !== '';
 
   return (
     <div className="content" style={{ width: '100%' }}>
@@ -34,7 +51,10 @@ export function ProjectList(props: { onSelect: (projectId: string) => void }) {
         <div>
           <h1 style={{ margin: 0, fontSize: 20 }}>ContextSource</h1>
           <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
-            등록된 프로젝트 {summaries.length}개 — 코드 관계 지식베이스
+            {isFiltered
+              ? `등록된 프로젝트 ${filtered.length}/${summaries.length}개 표시 중 (필터 적용됨)`
+              : `등록된 프로젝트 ${summaries.length}개`}{' '}
+            — 코드 관계 지식베이스
           </div>
         </div>
         <button className="btn" onClick={() => setShowForm((v) => !v)}>
@@ -44,6 +64,7 @@ export function ProjectList(props: { onSelect: (projectId: string) => void }) {
 
       {showForm && (
         <RegisterProjectForm
+          workspaceRoot={workspaceRoot}
           onDone={() => {
             setShowForm(false);
             setRefreshKey((k) => k + 1);
@@ -84,10 +105,10 @@ export function ProjectList(props: { onSelect: (projectId: string) => void }) {
                 <th>이름</th>
                 <th>경로</th>
                 <th>기술 스택</th>
-                <th>Entities</th>
-                <th>Relationships</th>
+                <th>Entity 수</th>
+                <th>Relationship 수</th>
                 <th>마지막 분석</th>
-                <th>revision</th>
+                <th>Revision</th>
               </tr>
             </thead>
             <tbody>
@@ -99,7 +120,9 @@ export function ProjectList(props: { onSelect: (projectId: string) => void }) {
                       <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>{s.project.description}</div>
                     )}
                   </td>
-                  <td style={{ fontSize: 12, color: 'var(--text-dim)' }}>{s.project.rootPath}</td>
+                  <td style={{ fontSize: 12, color: 'var(--text-dim)' }} title={s.project.rootPath}>
+                    {relativeToWorkspace(s.project.rootPath, workspaceRoot)}
+                  </td>
                   <td>
                     <TechStackBadges entries={s.techStack} />
                   </td>
@@ -111,7 +134,7 @@ export function ProjectList(props: { onSelect: (projectId: string) => void }) {
                         <span className={`badge ${s.lastRun.status === 'completed' ? 'static' : 'fail'}`}>
                           {s.lastRun.mode}
                         </span>{' '}
-                        {new Date(s.lastRun.startedAt).toLocaleString()}
+                        {new Date(s.lastRun.startedAt).toLocaleString('ko-KR')}
                       </>
                     ) : (
                       <span style={{ color: 'var(--text-dim)' }}>분석 안 됨</span>
@@ -149,7 +172,7 @@ function TechStackBadges(props: { entries: TechStackEntry[] }) {
   );
 }
 
-function RegisterProjectForm(props: { onDone: () => void }) {
+function RegisterProjectForm(props: { workspaceRoot: string | null; onDone: () => void }) {
   const [name, setName] = useState('');
   const [projectPath, setProjectPath] = useState('');
   const [tsconfigPath, setTsconfigPath] = useState('tsconfig.json');
@@ -185,6 +208,12 @@ function RegisterProjectForm(props: { onDone: () => void }) {
       <h2 className="section-title">새 프로젝트 등록</h2>
       <p style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 0 }}>
         경로는 서버의 workspace root 기준 상대 경로입니다 (예: <code>my-service</code>).
+        {props.workspaceRoot && (
+          <>
+            {' '}
+            현재 workspace root: <code>{props.workspaceRoot}</code>
+          </>
+        )}
       </p>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
         <label>

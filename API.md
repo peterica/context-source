@@ -92,6 +92,12 @@ Phase 2(ADR-0004)부터 서버는 프로젝트 하나에 고정되지 않는다.
 ### 2.0 프로젝트 등록/관리 — ADR-0004
 
 ```
+GET /workspace
+```
+
+- 응답: `{ "root": "/abs/path/to/workspace" }` — 서버에 설정된 workspace-root의 실제 절대 경로. `POST /projects`의 `path`가 이 값 기준 상대 경로임을 Web UI가 등록 폼에서 보여주기 위한 읽기 전용 endpoint다(UX 감사 P1-1, 이전에는 이 값을 확인할 방법이 UI 어디에도 없었다).
+
+```
 GET /projects
 ```
 

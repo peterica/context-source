@@ -104,6 +104,9 @@ export interface CreateProjectPayload {
 }
 
 export const api = {
+  // ── workspace 정보 ──────────────────────────────────────────────────────
+  getWorkspace: () => request<{ root: string }>('/workspace'),
+
   // ── 프로젝트 등록/목록 (ADR-0004) ──────────────────────────────────────
   listProjects: () => request<{ items: ProjectSummary[] }>('/projects'),
 

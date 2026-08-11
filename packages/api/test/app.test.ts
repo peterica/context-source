@@ -81,6 +81,14 @@ async function postJson(pathAndQuery: string, payload: unknown) {
   return { status: res.status, body: await res.json() };
 }
 
+describe('GET /workspace', () => {
+  it('returns the configured workspace root (UX audit P1-1)', async () => {
+    const { status, body } = await getJson('/workspace');
+    expect(status).toBe(200);
+    expect(body.root).toBe(workspaceRoot);
+  });
+});
+
 describe('Project registry (ADR-0004)', () => {
   it('GET /projects lists registered projects with stats and tech stack (no N+1 fetch needed)', async () => {
     const { status, body } = await getJson('/projects');

@@ -109,6 +109,16 @@ export function createApp(ctx: AppContext): Express {
 
   const router = express.Router();
 
+  // ── workspace 정보 (읽기 전용) ───────────────────────────────────────────
+  // 프로젝트 등록 폼이 "workspace root 기준 상대 경로"를 요구하는데, 정작 그 root 값을
+  // Web UI 어디서도 확인할 수 없었다(UX 감사 P1-1) — 등록 화면에 실제 값을 보여주기 위함.
+  router.get(
+    '/workspace',
+    asyncHandler((_req, res) => {
+      res.json({ root: ctx.workspaceRoot });
+    }),
+  );
+
   // ── 프로젝트 등록/목록/관리 (ADR-0004) ──────────────────────────────────
 
   router.get(

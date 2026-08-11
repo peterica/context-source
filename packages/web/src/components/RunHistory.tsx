@@ -26,9 +26,9 @@ export function RunHistory(props: { projectId: string; refreshKey: number }) {
                 <th>시작 시각</th>
                 <th>모드</th>
                 <th>상태</th>
-                <th>revision</th>
-                <th>Entities</th>
-                <th>Relationships</th>
+                <th>Revision</th>
+                <th>Entity 수</th>
+                <th>Relationship 수</th>
                 <th>실패</th>
               </tr>
             </thead>
@@ -40,7 +40,7 @@ export function RunHistory(props: { projectId: string; refreshKey: number }) {
                     style={{ cursor: r.failures.length > 0 ? 'pointer' : 'default' }}
                     onClick={() => r.failures.length > 0 && setExpanded(expanded === r.id ? null : r.id)}
                   >
-                    <td>{new Date(r.startedAt).toLocaleString()}</td>
+                    <td>{new Date(r.startedAt).toLocaleString('ko-KR')}</td>
                     <td>{r.mode}</td>
                     <td>
                       <span className={`badge ${r.status === 'completed' ? 'static' : 'fail'}`}>{r.status}</span>

@@ -451,11 +451,11 @@ MCP tool은 5개 고정 read 오퍼레이션(search/get/callers/callees/subgraph
 
 **2026-08-11 결정 완료**: PRD.md OQ-3에 "실제 사용자가 고정 오퍼레이션으로 풀 수 없는 질문을 반복 제기하기 전까지는 확장하지 않는다"는 후속 결정을 추가했다 — "언젠가 다룰 것"이 아니라 "지금은 의도적으로 안 함"으로 명시했다.
 
-### 5.18 P2 — 문서 발견성 (OpenAPI)
+### 5.18 P2 — [해결됨] 문서 발견성 (OpenAPI)
 
-내부 문서(PRD/ROADMAP/ADR/API.md/DATA-MODEL.md/IMPLEMENTATION_REPORT.md)의 완성도는 이례적으로 높지만, 외부 개발자가 API를 발견하는 경로(OpenAPI/Swagger 스펙, 검색 가능한 문서 사이트)는 없다 — API.md는 손으로 쓴 마크다운뿐이다.
+내부 문서(PRD/ROADMAP/ADR/API.md/DATA-MODEL.md/IMPLEMENTATION_REPORT.md)의 완성도는 이례적으로 높지만, 외부 개발자가 API를 발견하는 경로(OpenAPI/Swagger 스펙, 검색 가능한 문서 사이트)는 없었다 — API.md는 손으로 쓴 마크다운뿐이었다.
 
-- API.md 기반 OpenAPI 스펙 자동 생성을 검토한다.
+**2026-08-12 수정 완료**: [openapi.yaml](./openapi.yaml)을 작성해 API.md §2의 HTTP API 17개 endpoint와 16개 스키마를 OpenAPI 3.0으로 옮겼다. `@redocly/cli lint`(구조 검증)와 `bundle`(전체 `$ref` 해석)로 실제 유효성을 확인했다 — 인증이 없는(BENCHMARK.md 5.12) 로컬 전용 API라는 사실을 그대로 반영해 `security` 스키마는 정의하지 않았다.
 
 ### 5.19 P2 — [해결됨] 라이선스·배포 모델과 커뮤니티 0일차 명시
 

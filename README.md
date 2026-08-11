@@ -176,6 +176,7 @@ AI Context Engine
 - ROADMAP.md : 장기 비전 및 확장 계획
 - DATA-MODEL.md : SQLite Graph Schema (DDL) — 구현된 스키마와 100% 일치
 - API.md : Query API 스펙 (HTTP + MCP)
+- openapi.yaml : API.md의 HTTP API를 옮긴 OpenAPI 3.0 스펙 (기계 판독 가능, BENCHMARK.md 5.18)
 - BENCHMARK.md : 유사 제품 벤치마킹 및 ContextSource 개선 과제
 - BENCHMARK-PROMPT.md : 다른 프로젝트에 적용할 경쟁 벤치마킹 재사용 프롬프트
 - docs/adr/ : 기술 스택·설계 결정 기록 (ADR)

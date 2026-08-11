@@ -1,0 +1,835 @@
+openapi: 3.0.3
+info:
+  title: ContextSource Query API
+  version: '1.0.0'
+  description: |
+    ContextSource의 HTTP Query API — Entity/Relationship/Evidence 그래프를 조회하고,
+    프로젝트를 등록/관리하고, 분석을 실행한다. 이 스펙은 [API.md](./API.md)를 기계 판독
+    가능한 형태로 옮긴 것이다(BENCHMARK.md 5.18 — 이전에는 API.md 마크다운 문서뿐이라
+    외부 개발자가 API를 발견할 표준 경로가 없었다). 내용이 어긋나면 API.md가 우선한다.
+
+    MCP(Model Context Protocol) tool은 이 스펙에 포함하지 않는다 — HTTP가 아닌 stdio
+    transport이며, API.md §3에 별도로 문서화되어 있다.
+  license:
+    name: MIT
+    url: https://github.com/peterica/context-source/blob/main/LICENSE
+externalDocs:
+  description: 전체 문서 (API.md, DATA-MODEL.md, PRD.md 등)
+  url: https://github.com/peterica/context-source
+
+servers:
+  - url: http://localhost:9080/api/v1
+    description: 로컬 기본값 (PORT/API_PORT 환경변수로 변경 가능, README.md 참고)
+
+tags:
+  - name: workspace
+    description: 서버에 설정된 workspace-root 정보 (읽기 전용)
+  - name: projects
+    description: 프로젝트 등록/조회/수정/삭제 (ADR-0004)
+  - name: entities
+    description: Entity 검색 및 상세 조회
+  - name: relationships
+    description: Entity 간 연결 관계, caller/callee, 서브그래프
+  - name: analysis
+    description: 분석 실행 및 이력
+  - name: stats
+    description: 통계 및 inferred 관계 검토
+  - name: tech-stack
+    description: 프로젝트 기술 스택 태그 (ADR-0005)
+  - name: similar-projects
+    description: 유사 프로젝트 탐색 (ADR-0006)
+  - name: health
+    description: 헬스체크 (Docker/오케스트레이터용, BENCHMARK.md 5.16)
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: 헬스체크
+      description: |
+        SQLite 접근 가능 여부까지 확인한다. API 버전(`/api/v1`)과 무관하게 서버 루트에
+        있다 — Docker Compose의 healthcheck가 이 경로를 그대로 호출한다.
+      responses:
+        '200':
+          description: 정상
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [ok] }
+        '503':
+          description: DB 접근 불가
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [error] }
+                  message: { type: string }
+
+  /workspace:
+    get:
+      tags: [workspace]
+      summary: workspace-root 조회
+      description: |
+        서버에 설정된 workspace-root의 실제 절대 경로. `POST /projects`의 `path`가 이
+        값 기준 상대 경로임을 등록 폼에서 보여주기 위한 읽기 전용 endpoint다.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [root]
+                properties:
+                  root: { type: string, example: /workspaces }
+
+  /projects:
+    get:
+      tags: [projects]
+      summary: 프로젝트 목록
+      description: 전체 그래프가 아니라 프로젝트별 집계만 반환한다 (Query-first).
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/ProjectSummary' }
+    post:
+      tags: [projects]
+      summary: 프로젝트 등록
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, path, tsconfigPath]
+              properties:
+                name: { type: string, example: My Service }
+                path:
+                  type: string
+                  description: workspace-root 기준 상대 경로
+                  example: my-service
+                tsconfigPath:
+                  type: string
+                  description: path로 정해진 프로젝트 루트 기준 상대 경로
+                  example: tsconfig.json
+                id:
+                  type: string
+                  description: 생략하면 name에서 kebab-case로 자동 생성(충돌 시 -2, -3... 접미사)
+                  example: my-service
+                description: { type: string }
+      responses:
+        '201':
+          description: 등록됨
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [project]
+                properties:
+                  project: { $ref: '#/components/schemas/Project' }
+        '400': { $ref: '#/components/responses/InvalidParam' }
+        '409': { $ref: '#/components/responses/ProjectAlreadyExists' }
+
+  /projects/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [projects]
+      summary: 프로젝트 상세
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectSummary' }
+        '404': { $ref: '#/components/responses/ProjectNotFound' }
+    patch:
+      tags: [projects]
+      summary: 프로젝트 수정
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                tsconfigPath: { type: string }
+                description: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  project: { $ref: '#/components/schemas/Project' }
+        '404': { $ref: '#/components/responses/ProjectNotFound' }
+    delete:
+      tags: [projects]
+      summary: 프로젝트 삭제
+      description: entity/relationship/evidence는 CASCADE로 함께 삭제된다.
+      responses:
+        '204': { description: 삭제됨 }
+        '404': { $ref: '#/components/responses/ProjectNotFound' }
+
+  /projects/{id}/entities:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [entities]
+      summary: Entity 검색
+      parameters:
+        - name: name
+          in: query
+          description: 부분 일치, 대소문자 무시
+          schema: { type: string }
+        - name: kind
+          in: query
+          schema: { $ref: '#/components/schemas/EntityKind' }
+        - name: filePath
+          in: query
+          description: 접두 일치
+          schema: { type: string }
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Entity' }
+                  total: { type: integer }
+        '404': { $ref: '#/components/responses/ProjectNotFound' }
+
+  /projects/{id}/entities/{encodedId}:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/EncodedEntityId'
+    get:
+      tags: [entities]
+      summary: Entity 상세
+      description: 목록이 아니라 관계 개수만 준다. 관계 목록은 `/relationships`로 조회한다.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entity: { $ref: '#/components/schemas/Entity' }
+                  relationshipCounts:
+                    type: object
+                    properties:
+                      in: { type: integer }
+                      out: { type: integer }
+        '400': { $ref: '#/components/responses/InvalidParam' }
+        '404': { $ref: '#/components/responses/EntityNotFound' }
+
+  /projects/{id}/entities/{encodedId}/relationships:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/EncodedEntityId'
+    get:
+      tags: [relationships]
+      summary: 연결 관계 목록
+      parameters:
+        - name: direction
+          in: query
+          schema: { type: string, enum: [in, out, both], default: both }
+        - name: types
+          in: query
+          description: 콤마로 구분한 RelationshipType 목록
+          schema: { type: string, example: 'CALLS,IMPORTS' }
+        - name: resolution
+          in: query
+          schema: { $ref: '#/components/schemas/Resolution' }
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: 'OK — counterpart는 direction 기준 반대편 Entity(in이면 source, out이면 target)'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RelationshipListResponse' }
+        '404': { $ref: '#/components/responses/EntityNotFound' }
+
+  /projects/{id}/entities/{encodedId}/callers:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/EncodedEntityId'
+    get:
+      tags: [relationships]
+      summary: Caller 목록 (들어오는 CALLS만)
+      description: '/relationships?types=CALLS&direction=in의 고정 단축 경로.'
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RelationshipListResponse' }
+        '404': { $ref: '#/components/responses/EntityNotFound' }
+
+  /projects/{id}/entities/{encodedId}/callees:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/EncodedEntityId'
+    get:
+      tags: [relationships]
+      summary: Callee 목록 (나가는 CALLS만)
+      description: '/relationships?types=CALLS&direction=out의 고정 단축 경로.'
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RelationshipListResponse' }
+        '404': { $ref: '#/components/responses/EntityNotFound' }
+
+  /projects/{id}/entities/{encodedId}/subgraph:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/EncodedEntityId'
+    get:
+      tags: [relationships]
+      summary: 서브그래프 조회
+      description: |
+        변경 영향 그래프(FR-V1) = `direction=in` — 별도 endpoint를 두지 않는다.
+        Web UI는 이 호출로 영향 그래프를 그린다.
+      parameters:
+        - name: direction
+          in: query
+          schema: { type: string, enum: [in, out, both], default: out }
+        - name: depth
+          in: query
+          schema: { type: integer, default: 2, minimum: 0, maximum: 5 }
+        - name: types
+          in: query
+          schema: { type: string, example: 'CALLS,IMPORTS' }
+        - name: resolution
+          in: query
+          schema: { $ref: '#/components/schemas/Resolution' }
+        - name: maxNodes
+          in: query
+          schema: { type: integer, default: 200, minimum: 1, maximum: 1000 }
+        - name: includeSnippets
+          in: query
+          description: false면 Evidence에서 snippet을 생략한다(토큰/전송량 절감)
+          schema: { type: boolean, default: true }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rootId: { type: string }
+                  entities:
+                    type: array
+                    items: { $ref: '#/components/schemas/Entity' }
+                  relationships:
+                    type: array
+                    items: { $ref: '#/components/schemas/Relationship' }
+                  truncated: { type: boolean }
+                  stats:
+                    type: object
+                    properties:
+                      entityCount: { type: integer }
+                      relationshipCount: { type: integer }
+                      maxDepthReached: { type: integer }
+        '404': { $ref: '#/components/responses/EntityNotFound' }
+
+  /projects/{id}/analysis/runs:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [analysis]
+      summary: 분석 이력 목록
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/AnalysisRun' }
+        '404': { $ref: '#/components/responses/ProjectNotFound' }
+    post:
+      tags: [analysis]
+      summary: 분석 실행
+      description: |
+        incremental은 마지막 완료 run의 revision을 base로 git diff를 계산하고,
+        직전 run의 실패 파일을 변경 여부와 관계없이 재분석 대상에 합친다.
+        tsconfigPath는 프로젝트 등록 시 저장된 값을 그대로 쓴다(요청에 포함하지 않음).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mode]
+              properties:
+                mode: { type: string, enum: [full, incremental] }
+      responses:
+        '202':
+          description: 실행 시작됨 (비동기 아님 — MVP 오케스트레이터는 동기 완료 후 즉시 응답)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  runId: { type: string }
+        '400': { $ref: '#/components/responses/InvalidParam' }
+        '404': { $ref: '#/components/responses/ProjectNotFound' }
+        '409': { $ref: '#/components/responses/AnalysisInProgress' }
+
+  /projects/{id}/analysis/runs/{runId}:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - name: runId
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [analysis]
+      summary: 분석 실행 상세
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AnalysisRun' }
+        '404': { $ref: '#/components/responses/RunNotFound' }
+
+  /projects/{id}/stats:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [stats]
+      summary: Entity/Relationship/Evidence 통계
+      description: Query-first 원칙 유지 — 전체 그래프를 내려주지 않고 집계만 반환한다.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entities:
+                    type: object
+                    properties:
+                      total: { type: integer }
+                      byKind:
+                        type: object
+                        additionalProperties: { type: integer }
+                  relationships:
+                    type: object
+                    properties:
+                      total: { type: integer }
+                      byType:
+                        type: object
+                        additionalProperties: { type: integer }
+                      byResolution:
+                        type: object
+                        additionalProperties: { type: integer }
+                  evidence:
+                    type: object
+                    properties:
+                      total: { type: integer }
+        '404': { $ref: '#/components/responses/ProjectNotFound' }
+
+  /projects/{id}/inferred-relationships:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [stats]
+      summary: Inferred 관계 검토 목록
+      description: resolution=inferred인 관계를 confidence 오름차순으로 페이지네이션 반환한다.
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        relationship: { $ref: '#/components/schemas/Relationship' }
+                        source: { $ref: '#/components/schemas/Entity' }
+                        target: { $ref: '#/components/schemas/Entity' }
+                  total: { type: integer }
+        '404': { $ref: '#/components/responses/ProjectNotFound' }
+
+  /projects/{id}/tech-stack:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [tech-stack]
+      summary: 기술 스택 목록
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/TechStackEntry' }
+        '404': { $ref: '#/components/responses/ProjectNotFound' }
+    post:
+      tags: [tech-stack]
+      summary: 기술 스택 항목 추가 (idempotent)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TechStackEntry' }
+      responses:
+        '201':
+          description: 추가됨 (이미 있으면 그대로 idempotent)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/TechStackEntry' }
+        '400': { $ref: '#/components/responses/InvalidParam' }
+        '404': { $ref: '#/components/responses/ProjectNotFound' }
+    delete:
+      tags: [tech-stack]
+      summary: 기술 스택 항목 삭제 (idempotent)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TechStackEntry' }
+      responses:
+        '204': { description: '삭제됨 (없던 항목이어도 204)' }
+        '400': { $ref: '#/components/responses/InvalidParam' }
+        '404': { $ref: '#/components/responses/ProjectNotFound' }
+
+  /projects/{id}/tech-stack/detect:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    post:
+      tags: [tech-stack]
+      summary: package.json 기반 기술 스택 자동 감지
+      description: |
+        프로젝트의 package.json(tsconfigPath 디렉터리 우선, 없으면 rootPath)을 읽어
+        알려진 패키지를 매핑하고 기존 항목과 병합한다. `added`는 이번 호출로 새로
+        추가된 항목만 포함한다(이미 있던 항목은 제외).
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/TechStackEntry' }
+                  added:
+                    type: array
+                    items: { $ref: '#/components/schemas/TechStackEntry' }
+        '404': { $ref: '#/components/responses/ProjectNotFound' }
+
+  /projects/{id}/similar:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [similar-projects]
+      summary: 유사 프로젝트 탐색
+      description: |
+        유사도 = 두 프로젝트의 기술 스택 태그 교집합 크기(language/runtime 카테고리는
+        모든 프로젝트가 공통으로 가져 변별력이 없으므로 제외한다). 임베딩/Vector Search가
+        아니며, Project를 그래프 노드나 저장된 관계로 만들지 않는 조회 시점 계산이다
+        (ADR-0006).
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 10, minimum: 1, maximum: 50 }
+      responses:
+        '200':
+          description: 'OK — score 내림차순, 동점이면 이름 오름차순. 공유 태그 없는 프로젝트/자기 자신은 제외.'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        project: { $ref: '#/components/schemas/Project' }
+                        sharedTechStack:
+                          type: array
+                          items: { $ref: '#/components/schemas/TechStackEntry' }
+                        score: { type: integer }
+        '404': { $ref: '#/components/responses/ProjectNotFound' }
+
+components:
+  parameters:
+    ProjectId:
+      name: id
+      in: path
+      required: true
+      description: Entity id의 projectId 세그먼트와 같은 값
+      schema: { type: string }
+    EncodedEntityId:
+      name: encodedId
+      in: path
+      required: true
+      description: |
+        Entity의 canonical id를 UTF-8 바이트로 변환한 뒤 padding 없는 Base64url(RFC 4648
+        URL-safe alphabet)로 인코딩한 값. 예: canonical id
+        `p1/sym:src/payment/service.ts#PaymentService.charge` → 이 값을 base64url 인코딩.
+      schema: { type: string }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, default: 50, minimum: 1, maximum: 200 }
+    Offset:
+      name: offset
+      in: query
+      schema: { type: integer, default: 0, minimum: 0 }
+
+  responses:
+    InvalidParam:
+      description: 잘못된 파라미터 (kind/type/depth 등, 또는 workspace-root를 벗어나거나 존재하지 않는 프로젝트 경로)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    EntityNotFound:
+      description: 존재하지 않는 Entity id (다른 프로젝트 소속인 경우도 포함)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    ProjectNotFound:
+      description: 존재하지 않는 프로젝트 id
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    ProjectAlreadyExists:
+      description: 이미 존재하는 id로 프로젝트 등록 시도
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    RunNotFound:
+      description: 존재하지 않는 분석 실행 id
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    AnalysisInProgress:
+      description: 분석 실행 중 새 분석 요청
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum:
+                - INVALID_PARAM
+                - ENTITY_NOT_FOUND
+                - PROJECT_NOT_FOUND
+                - PROJECT_ALREADY_EXISTS
+                - RUN_NOT_FOUND
+                - ANALYSIS_IN_PROGRESS
+            message: { type: string }
+
+    EntityKind:
+      type: string
+      enum: [file, class, interface, function, method, external_module]
+
+    RelationshipType:
+      type: string
+      enum: [DECLARES, IMPORTS, CALLS, IMPLEMENTS, EXTENDS]
+
+    Resolution:
+      type: string
+      enum: [static, inferred]
+
+    TechStackCategory:
+      type: string
+      enum: [language, runtime, framework, orm, database, build_tool]
+
+    EntityRange:
+      type: object
+      nullable: true
+      properties:
+        startLine: { type: integer }
+        endLine: { type: integer }
+
+    Entity:
+      type: object
+      required: [id, projectId, kind, name, revision]
+      properties:
+        id: { type: string, example: 'p1/sym:src/payment/service.ts#PaymentService.charge' }
+        projectId: { type: string }
+        kind: { $ref: '#/components/schemas/EntityKind' }
+        name: { type: string }
+        filePath:
+          type: string
+          nullable: true
+          description: external_module이면 null
+        range:
+          allOf: [{ $ref: '#/components/schemas/EntityRange' }]
+          description: external_module이면 null
+        revision: { type: string }
+
+    EvidenceRange:
+      type: object
+      properties:
+        startLine: { type: integer }
+        startCol: { type: integer }
+        endLine: { type: integer }
+        endCol: { type: integer }
+
+    Evidence:
+      type: object
+      properties:
+        id: { type: string }
+        filePath: { type: string }
+        range: { $ref: '#/components/schemas/EvidenceRange' }
+        snippet:
+          type: string
+          description: includeSnippets=false 요청에서는 생략될 수 있다
+        analyzer: { type: string, example: ts-analyzer@0.1.0 }
+        revision: { type: string }
+
+    Relationship:
+      type: object
+      required: [id, type, sourceId, targetId, resolution, confidence, evidence]
+      properties:
+        id: { type: string }
+        type: { $ref: '#/components/schemas/RelationshipType' }
+        sourceId: { type: string }
+        targetId: { type: string }
+        resolution: { $ref: '#/components/schemas/Resolution' }
+        confidence: { type: number, format: float, minimum: 0, maximum: 1 }
+        evidence:
+          type: array
+          items: { $ref: '#/components/schemas/Evidence' }
+
+    RelationshipListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              relationship: { $ref: '#/components/schemas/Relationship' }
+              counterpart: { $ref: '#/components/schemas/Entity' }
+        total: { type: integer }
+
+    Project:
+      type: object
+      required: [id, name, rootPath, tsconfigPath, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        rootPath: { type: string, description: 항상 절대 경로 }
+        tsconfigPath: { type: string, description: 항상 절대 경로 }
+        description: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    ProjectSummary:
+      type: object
+      properties:
+        project: { $ref: '#/components/schemas/Project' }
+        entityCount: { type: integer }
+        relationshipCount: { type: integer }
+        lastRun:
+          type: object
+          nullable: true
+          allOf: [{ $ref: '#/components/schemas/AnalysisRun' }]
+        techStack:
+          type: array
+          items: { $ref: '#/components/schemas/TechStackEntry' }
+
+    AnalysisFailure:
+      type: object
+      properties:
+        filePath: { type: string }
+        message: { type: string }
+        preservedRevision:
+          type: string
+          nullable: true
+          description: M3 증분 분석에서만 채워짐 — 실패 파일의 기존 결과가 보존된 revision
+
+    AnalysisRun:
+      type: object
+      properties:
+        id: { type: string }
+        projectId: { type: string }
+        mode: { type: string, enum: [full, incremental] }
+        revision: { type: string }
+        baseRevision: { type: string, nullable: true }
+        status: { type: string, enum: [running, completed, failed] }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time, nullable: true }
+        entityCount: { type: integer, nullable: true }
+        relationshipCount: { type: integer, nullable: true }
+        failures:
+          type: array
+          items: { $ref: '#/components/schemas/AnalysisFailure' }
+
+    TechStackEntry:
+      type: object
+      required: [category, value]
+      properties:
+        category: { $ref: '#/components/schemas/TechStackCategory' }
+        value: { type: string, maxLength: 50, example: React }

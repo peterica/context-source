@@ -2,6 +2,7 @@
 
 - **문서 버전**: 0.1 (Draft)
 - **근거 문서**: [PRD.md](./PRD.md) 5.2/5.4장, OQ-3/OQ-4 결정, [DATA-MODEL.md](./DATA-MODEL.md)
+- **기계 판독 가능 스펙**: [openapi.yaml](./openapi.yaml) — HTTP API(2장)를 OpenAPI 3.0으로 옮긴 것(BENCHMARK.md 5.18). 내용이 어긋나면 이 문서(API.md)가 우선한다. MCP tool(3장)은 HTTP가 아니므로 OpenAPI 스펙에 없다.
 
 두 인터페이스를 제공하며 동일한 내부 Query 서비스를 공유한다 (OQ-3, OQ-4).
 

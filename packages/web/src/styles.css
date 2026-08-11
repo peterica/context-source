@@ -6,6 +6,13 @@
   --text: #e6e8ec;
   --text-dim: #9aa1ae;
   --accent: #5b8def;
+  /* --accent를 배경/텍스트로 직접 쓰던 두 곳이 WCAG AA(4.5:1) 대비 기준에 미달했다
+     (접근성 감사, axe-core color-contrast, BENCHMARK.md 5.20):
+     button.btn(흰 글씨, 대비 3.23) / .badge.kind(반투명 배경 위 텍스트, 대비 3.97~4.38).
+     테두리(.entity-row.selected) 등 텍스트가 아닌 용도의 --accent는 대비 규정 대상이
+     아니므로 그대로 둔다. */
+  --accent-btn: #3f6bc4;
+  --accent-badge: #85b0f0;
   --static: #4caf7d;
   --inferred: #d9a441;
   --danger: #e5534b;
@@ -70,7 +77,7 @@ nav.tabs button.active {
 }
 
 button.btn {
-  background: var(--accent);
+  background: var(--accent-btn);
   color: white;
   border: none;
   padding: 6px 12px;
@@ -140,7 +147,7 @@ main.layout {
 }
 .badge.kind {
   background: rgba(91, 141, 239, 0.15);
-  color: var(--accent);
+  color: var(--accent-badge);
 }
 .badge.fail {
   background: rgba(229, 83, 75, 0.15);

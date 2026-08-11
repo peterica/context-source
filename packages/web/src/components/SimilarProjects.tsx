@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, type SimilarProject } from '../api/client.js';
+import { clickableRowProps } from '../a11y.js';
 
 // 기술 스택 태그 교집합 기반 유사도 (ADR-0006) — 임베딩/Vector Search가 아니다.
 export function SimilarProjects(props: {
@@ -51,7 +52,7 @@ export function SimilarProjects(props: {
         </thead>
         <tbody>
           {items.map((s) => (
-            <tr key={s.project.id} className="entity-row" onClick={() => props.onSelect(s.project.id)}>
+            <tr key={s.project.id} className="entity-row" {...clickableRowProps(() => props.onSelect(s.project.id))}>
               <td>
                 <strong>{s.project.name}</strong>
               </td>

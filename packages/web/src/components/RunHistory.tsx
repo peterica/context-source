@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from 'react';
 import type { AnalysisRun } from '@contextsource/core';
 import { api } from '../api/client.js';
 import { formatRevision } from '../format.js';
+import { clickableRowProps } from '../a11y.js';
 
 export function RunHistory(props: { projectId: string; refreshKey: number }) {
   const [runs, setRuns] = useState<AnalysisRun[]>([]);
@@ -38,7 +39,9 @@ export function RunHistory(props: { projectId: string; refreshKey: number }) {
                   <tr
                     key={r.id}
                     style={{ cursor: r.failures.length > 0 ? 'pointer' : 'default' }}
-                    onClick={() => r.failures.length > 0 && setExpanded(expanded === r.id ? null : r.id)}
+                    {...(r.failures.length > 0
+                      ? clickableRowProps(() => setExpanded(expanded === r.id ? null : r.id))
+                      : {})}
                   >
                     <td>{new Date(r.startedAt).toLocaleString('ko-KR')}</td>
                     <td>{r.mode}</td>

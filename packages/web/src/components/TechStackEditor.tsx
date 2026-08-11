@@ -138,7 +138,11 @@ export function TechStackEditor(props: { projectId: string; onChange?: () => voi
       )}
 
       <form onSubmit={addEntry} style={{ display: 'flex', gap: 6 }}>
-        <select value={category} onChange={(e) => setCategory(e.target.value as TechStackCategory)}>
+        <select
+          aria-label="기술 스택 카테고리"
+          value={category}
+          onChange={(e) => setCategory(e.target.value as TechStackCategory)}
+        >
           {CATEGORIES.map((c) => (
             <option key={c} value={c}>
               {CATEGORY_LABEL[c]}

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Relationship, Entity } from '@contextsource/core';
 import { api } from '../api/client.js';
 import { REL_TYPE_TOOLTIP } from '../glossary.js';
+import { clickableRowProps } from '../a11y.js';
 
 interface Item {
   relationship: Relationship;
@@ -55,13 +56,13 @@ export function Review(props: {
               {items.map((item) => (
                 <tr key={item.relationship.id}>
                   <td>
-                    <a onClick={() => props.onSelectEntity(item.source.id)} style={{ cursor: 'pointer' }}>
+                    <a {...clickableRowProps(() => props.onSelectEntity(item.source.id))} style={{ cursor: 'pointer' }}>
                       {item.source.name}
                     </a>
                   </td>
                   <td title={REL_TYPE_TOOLTIP[item.relationship.type]}>{item.relationship.type}</td>
                   <td>
-                    <a onClick={() => props.onSelectEntity(item.target.id)} style={{ cursor: 'pointer' }}>
+                    <a {...clickableRowProps(() => props.onSelectEntity(item.target.id))} style={{ cursor: 'pointer' }}>
                       {item.target.name}
                     </a>
                   </td>

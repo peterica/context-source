@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, type ProjectSummary } from '../api/client.js';
 import { formatRevision } from '../format.js';
+import { clickableRowProps } from '../a11y.js';
 import type { TechStackEntry } from '@contextsource/core';
 
 // s.project.rootPath가 매 행마다 동일한 workspace root 접두어를 반복 노출해 가독성을 떨어뜨렸다
@@ -79,7 +80,11 @@ export function ProjectList(props: { onSelect: (projectId: string) => void }) {
           onChange={(e) => setQuery(e.target.value)}
           style={{ width: 320 }}
         />
-        <select value={techStackFilter} onChange={(e) => setTechStackFilter(e.target.value)}>
+        <select
+          aria-label="기술 스택으로 필터링"
+          value={techStackFilter}
+          onChange={(e) => setTechStackFilter(e.target.value)}
+        >
           <option value="">기술 스택 전체</option>
           {allTechStackValues.map((v) => (
             <option key={v} value={v}>
@@ -113,7 +118,11 @@ export function ProjectList(props: { onSelect: (projectId: string) => void }) {
             </thead>
             <tbody>
               {filtered.map((s) => (
-                <tr key={s.project.id} className="entity-row" onClick={() => props.onSelect(s.project.id)}>
+                <tr
+                  key={s.project.id}
+                  className="entity-row"
+                  {...clickableRowProps(() => props.onSelect(s.project.id))}
+                >
                   <td>
                     <strong>{s.project.name}</strong>
                     {s.project.description && (

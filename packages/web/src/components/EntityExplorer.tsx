@@ -3,6 +3,7 @@ import type { Entity, Relationship } from '@contextsource/core';
 import { api, encodeEntityId } from '../api/client.js';
 import { formatRevision, ENTITY_KIND_LABEL } from '../format.js';
 import { RESOLUTION_TOOLTIP } from '../glossary.js';
+import { clickableRowProps } from '../a11y.js';
 import { ImpactGraph } from './ImpactGraph.js';
 import { EvidencePanel } from './EvidencePanel.js';
 
@@ -74,7 +75,7 @@ export function EntityExplorer(props: {
             <div
               key={c.relationship.id}
               className="entity-row"
-              onClick={() => props.onSelectEntity(c.counterpart.id)}
+              {...clickableRowProps(() => props.onSelectEntity(c.counterpart.id))}
             >
               <span className="name">{c.counterpart.name}</span>{' '}
               <span className={`badge ${c.relationship.resolution}`} title={RESOLUTION_TOOLTIP[c.relationship.resolution]}>
@@ -93,7 +94,7 @@ export function EntityExplorer(props: {
             <div
               key={c.relationship.id}
               className="entity-row"
-              onClick={() => props.onSelectEntity(c.counterpart.id)}
+              {...clickableRowProps(() => props.onSelectEntity(c.counterpart.id))}
             >
               <span className="name">{c.counterpart.name}</span>{' '}
               <span className={`badge ${c.relationship.resolution}`} title={RESOLUTION_TOOLTIP[c.relationship.resolution]}>

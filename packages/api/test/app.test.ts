@@ -81,6 +81,15 @@ async function postJson(pathAndQuery: string, payload: unknown) {
   return { status: res.status, body: await res.json() };
 }
 
+describe('GET /health', () => {
+  it('returns 200 ok when the DB is reachable (root-level, independent of /api/v1)', async () => {
+    // Docker healthcheck(docker-compose.yml)가 이 경로를 그대로 호출하므로 API 버전 접두어가 없다.
+    const res = await fetch(baseUrl.replace('/api/v1', '') + '/health');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ status: 'ok' });
+  });
+});
+
 describe('GET /workspace', () => {
   it('returns the configured workspace root (UX audit P1-1)', async () => {
     const { status, body } = await getJson('/workspace');

@@ -66,6 +66,24 @@ docker compose up --build
 - `ui`: http://localhost:9090 — 접속 후 **"+ 새 프로젝트 등록"**으로 workspace-root 기준 상대 경로(예: `demo-project`)를 입력해 프로젝트를 등록한 뒤, 프로젝트를 열어 "전체 분석"을 실행한다.
 - 여러 프로젝트를 담은 실제 디렉터리를 쓰려면: `WORKSPACE_ROOT=/absolute/path/to/your/projects docker compose up --build` — 그 아래의 각 프로젝트를 UI에서 상대 경로로 등록한다.
 - 포트가 이미 사용 중이면 `API_PORT=9081 UI_PORT=9091 docker compose up --build`처럼 덮어쓴다.
+- `api`/`ui` 모두 `docker compose ps`에서 healthcheck 상태(`healthy`/`unhealthy`)를 확인할 수 있다 — `api`는 `GET /health`로 SQLite 접근 가능 여부까지 확인하고, `ui`는 `GET /healthz`로 정적 파일 서버 프로세스 생존만 확인한다.
+
+#### SQLite 백업/복구
+
+분석 결과(Entity/Relationship/Evidence, 프로젝트 레지스트리)는 전부 `contextsource-data`라는 Docker named volume 안의 SQLite 파일 하나(`/app/data/contextsource.sqlite`)에 있다. `api` 서비스가 이 파일의 유일한 쓰기 주체이므로(ROADMAP.md), 백업은 파일 하나만 복사하면 된다.
+
+```bash
+# 백업 — api 컨테이너를 멈추지 않고, 파일을 통째로 복사한다(SQLite는 파일 잠금으로 안전함).
+docker compose exec api node -e "require('node:fs').copyFileSync('/app/data/contextsource.sqlite', '/app/data/backup-$(date +%Y%m%d).sqlite')"
+docker cp $(docker compose ps -q api):/app/data/backup-$(date +%Y%m%d).sqlite ./backup-$(date +%Y%m%d).sqlite
+
+# 복구 — api를 멈춘 뒤 파일을 되돌리고 다시 올린다.
+docker compose stop api
+docker cp ./backup-YYYYMMDD.sqlite $(docker compose ps -q api):/app/data/contextsource.sqlite
+docker compose start api
+```
+
+재분석은 언제든 다시 실행할 수 있으므로(Entity/Relationship은 분석의 산출물), 반드시 지켜야 하는 것은 **프로젝트 레지스트리(등록된 프로젝트 목록·기술 스택 태그)**다 — 이 부분은 재분석으로 복원되지 않는다.
 
 ### Docker 없이 실행
 

@@ -435,12 +435,15 @@ ROADMAP.md Phase 3/4는 Vector/임베딩 확장만 다루고 다중 언어 지�
 
 **2026-08-11 수정 완료**: ROADMAP.md Phase 2 예시 문구에 "이는 개념 예시일 뿐 다중 언어 지원이 로드맵에 있다는 뜻이 아니다"라는 명확화 주석을 추가하고, ADR-0007(5.14)의 결정을 함께 인용했다.
 
-### 5.16 P1 — 배포/운영 성숙도 보강
+### 5.16 P1 — [부분 해결] 배포/운영 성숙도 보강
 
-`docker-compose.yml`에 healthcheck, 로그 수집, 메트릭 endpoint가 없다. SQLite 파일 백업/복구 절차도 문서화되어 있지 않다. ROADMAP.md는 "SQLite 파일의 쓰기 주체는 api 하나로 제한"이라는 설계를 명시하는데, 이는 의도적이지만 동시에 팀 규모가 커지면 명백한 처리량 상한이 된다.
+`docker-compose.yml`에 healthcheck, 로그 수집, 메트릭 endpoint가 없었다. SQLite 파일 백업/복구 절차도 문서화되어 있지 않았다. ROADMAP.md는 "SQLite 파일의 쓰기 주체는 api 하나로 제한"이라는 설계를 명시하는데, 이는 의도적이지만 동시에 팀 규모가 커지면 명백한 처리량 상한이 된다.
 
-- Docker healthcheck, 최소 로깅/메트릭을 추가한다.
-- SQLite 백업 절차를 README.md 또는 별도 운영 문서에 명시한다.
+**2026-08-11 수정 완료 (healthcheck, 백업)**:
+- `api`에 `GET /health`(SQLite 접근 가능 여부까지 확인), `ui`에 `GET /healthz`(프로세스 생존 확인)를 추가하고 `docker-compose.yml`에 두 서비스 모두 healthcheck를 붙였다 — `ui`는 `api`가 `healthy`가 될 때까지 기동을 미룬다(`depends_on: condition: service_healthy`). 실제 `docker compose up`으로 두 컨테이너가 `healthy` 상태가 되는 것을 확인했다.
+- README.md에 SQLite 백업/복구 절차(`docker compose exec`+`docker cp` 기반)를 추가하고 실제로 백업 파일이 유효한 SQLite 데이터베이스로 생성되는지 확인했다.
+
+**미해결 (범위 밖으로 남김)**: 로그 수집·메트릭 endpoint는 이번에 다루지 않았다 — MVP 단일 사용자 로컬 실행 범위에서는 시급성이 낮다고 판단했다. 실제 팀 규모 배포가 확정되면 재검토한다.
 
 ### 5.17 P1 — [해결됨] Query 표현력 갭 공식 채택
 

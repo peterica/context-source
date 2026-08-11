@@ -20,6 +20,13 @@ const MIME = {
 };
 
 const server = http.createServer((req, res) => {
+  // Docker healthcheck용 — 정적 파일 서버 프로세스가 살아 있는지만 확인한다(BENCHMARK.md 5.16).
+  if (req.url === '/healthz') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: 'ok' }));
+    return;
+  }
+
   if (req.url?.startsWith('/api')) {
     const target = new URL(req.url, apiTarget);
     const proxyReq = http.request(

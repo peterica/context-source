@@ -107,6 +107,18 @@ export function createApp(ctx: AppContext): Express {
     next();
   });
 
+  // ── 헬스체크 (Docker/오케스트레이터용, API 버전과 무관하게 루트에 둔다) ──────
+  // docker-compose.yml의 healthcheck가 이 endpoint로 컨테이너 생존/DB 접근 가능 여부를 확인한다
+  // (BENCHMARK.md 5.16 — 이전에는 healthcheck 자체가 없었다).
+  app.get('/health', (_req, res) => {
+    try {
+      ctx.db.prepare('SELECT 1').get();
+      res.json({ status: 'ok' });
+    } catch (err) {
+      res.status(503).json({ status: 'error', message: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
   const router = express.Router();
 
   // ── workspace 정보 (읽기 전용) ───────────────────────────────────────────

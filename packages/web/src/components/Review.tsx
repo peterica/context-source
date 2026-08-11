@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Relationship, Entity } from '@contextsource/core';
 import { api } from '../api/client.js';
+import { REL_TYPE_TOOLTIP } from '../glossary.js';
 
 interface Item {
   relationship: Relationship;
@@ -46,7 +47,7 @@ export function Review(props: {
                 <th>Source</th>
                 <th>Type</th>
                 <th>Target</th>
-                <th>Confidence</th>
+                <th title="관계가 실제로 맞을 확신도 (1.0에 가까울수록 확실함)">Confidence</th>
                 <th>근거 위치</th>
               </tr>
             </thead>
@@ -58,7 +59,7 @@ export function Review(props: {
                       {item.source.name}
                     </a>
                   </td>
-                  <td>{item.relationship.type}</td>
+                  <td title={REL_TYPE_TOOLTIP[item.relationship.type]}>{item.relationship.type}</td>
                   <td>
                     <a onClick={() => props.onSelectEntity(item.target.id)} style={{ cursor: 'pointer' }}>
                       {item.target.name}

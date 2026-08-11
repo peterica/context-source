@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import cytoscape, { type Core } from 'cytoscape';
 // @ts-expect-error cytoscape-dagre has no bundled types
 import dagre from 'cytoscape-dagre';
-import type { Entity, Relationship, RelationshipType, Resolution } from '@contextsource/core';
+import type { Entity, EntityKind, Relationship, RelationshipType, Resolution } from '@contextsource/core';
 import { api, encodeEntityId } from '../api/client.js';
+import { ENTITY_KIND_LABEL } from '../format.js';
 
 cytoscape.use(dagre);
 
-const KIND_COLOR: Record<string, string> = {
+const KIND_COLOR: Record<EntityKind, string> = {
   file: '#5b8def',
   class: '#d97fd9',
   interface: '#7fd9c8',
@@ -79,7 +80,7 @@ export function ImpactGraph(props: {
         {
           selector: 'node',
           style: {
-            'background-color': (ele) => KIND_COLOR[ele.data('kind')] ?? '#888',
+            'background-color': (ele) => KIND_COLOR[ele.data('kind') as EntityKind] ?? '#888',
             label: 'data(label)',
             color: '#e6e8ec',
             'font-size': 9,
@@ -184,6 +185,32 @@ export function ImpactGraph(props: {
           <span className="badge static">static</span> <span className="badge inferred">inferred</span>
         </div>
       )}
+      {/* 노드 색상이 무엇을 뜻하는지 그래프 화면 안에 범례가 전혀 없었다(UX 감사 P1-5). */}
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 10,
+          fontSize: 11,
+          color: 'var(--text-dim)',
+          marginBottom: 6,
+        }}
+      >
+        {(Object.keys(KIND_COLOR) as EntityKind[]).map((kind) => (
+          <span key={kind} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <span
+              style={{
+                display: 'inline-block',
+                width: 9,
+                height: 9,
+                borderRadius: '50%',
+                backgroundColor: KIND_COLOR[kind],
+              }}
+            />
+            {ENTITY_KIND_LABEL[kind]}
+          </span>
+        ))}
+      </div>
       <div className="graph-canvas" ref={containerRef} />
     </div>
   );

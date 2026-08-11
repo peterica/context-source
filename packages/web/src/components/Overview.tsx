@@ -1,18 +1,10 @@
 import { useEffect, useState } from 'react';
 import { api, type ProjectStats } from '../api/client.js';
-import { formatRevision } from '../format.js';
-import type { AnalysisRun } from '@contextsource/core';
+import { formatRevision, ENTITY_KIND_LABEL } from '../format.js';
+import { RESOLUTION_TOOLTIP } from '../glossary.js';
+import type { AnalysisRun, EntityKind } from '@contextsource/core';
 import { TechStackEditor } from './TechStackEditor.js';
 import { SimilarProjects } from './SimilarProjects.js';
-
-const KIND_LABEL: Record<string, string> = {
-  file: 'File',
-  class: 'Class',
-  interface: 'Interface',
-  function: 'Function',
-  method: 'Method',
-  external_module: 'External Module',
-};
 
 export function Overview(props: {
   projectId: string;
@@ -69,11 +61,11 @@ export function Overview(props: {
           <div className="n">{stats.evidence.total}</div>
           <div className="l">Evidence</div>
         </div>
-        <div className="stat-tile">
+        <div className="stat-tile" title={RESOLUTION_TOOLTIP.static}>
           <div className="n">{stats.relationships.byResolution.static}</div>
           <div className="l">Static</div>
         </div>
-        <div className="stat-tile">
+        <div className="stat-tile" title={RESOLUTION_TOOLTIP.inferred}>
           <div className="n">{stats.relationships.byResolution.inferred}</div>
           <div className="l">Inferred</div>
         </div>
@@ -86,7 +78,7 @@ export function Overview(props: {
             <tbody>
               {Object.entries(stats.entities.byKind).map(([kind, count]) => (
                 <tr key={kind}>
-                  <td>{KIND_LABEL[kind] ?? kind}</td>
+                  <td>{ENTITY_KIND_LABEL[kind as EntityKind] ?? kind}</td>
                   <td style={{ textAlign: 'right' }}>{count}</td>
                 </tr>
               ))}

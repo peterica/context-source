@@ -6,6 +6,7 @@ import { execFileSync } from 'node:child_process';
 import type { Server } from 'node:http';
 import { openDatabase, symbolEntityId, upsertProject, type Db } from '@contextsource/core';
 import { createApp } from '../src/app.js';
+import { currentRevision } from '../src/git.js';
 
 function git(cwd: string, args: string[]): string {
   return execFileSync('git', args, { cwd, encoding: 'utf8' });
@@ -27,7 +28,6 @@ let tsconfigPath: string;
 let db: Db;
 let server: Server;
 let baseUrl: string;
-let revA: string;
 
 beforeAll(async () => {
   repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cs-api-incremental-'));
@@ -50,19 +50,16 @@ beforeAll(async () => {
     }),
   );
   write(repoDir, 'src/a.ts', `export function foo(): number {\n  return 1;\n}\n`);
-  revA = commit(repoDir, 'A');
+  commit(repoDir, 'A');
   tsconfigPath = path.join(repoDir, 'tsconfig.json');
 
   db = openDatabase(':memory:');
-  upsertProject(db, { id: PROJECT, name: 'incr-endpoint', rootPath: repoDir });
+  upsertProject(db, { id: PROJECT, name: 'incr-endpoint', rootPath: repoDir, tsconfigPath });
 
   const app = createApp({
     db,
-    projectId: PROJECT,
-    projectName: 'incr-endpoint',
-    projectRootPath: repoDir,
-    tsconfigPath,
-    resolveRevision: () => revA,
+    workspaceRoot: repoDir,
+    resolveRevision: (repoRoot) => currentRevision(repoRoot),
   });
   await new Promise<void>((resolve) => {
     server = app.listen(0, () => resolve());
@@ -78,7 +75,7 @@ afterAll(async () => {
 });
 
 async function postRun(mode: string) {
-  const res = await fetch(`${baseUrl}/analysis/runs`, {
+  const res = await fetch(`${baseUrl}/projects/${PROJECT}/analysis/runs`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ mode }),
@@ -86,7 +83,7 @@ async function postRun(mode: string) {
   return { status: res.status, body: await res.json() };
 }
 
-describe('POST /analysis/runs (mode=incremental)', () => {
+describe('POST /projects/{id}/analysis/runs (mode=incremental)', () => {
   it('mode=incremental before any full scan returns 400 INVALID_PARAM', async () => {
     const { status, body } = await postRun('incremental');
     expect(status).toBe(400);
@@ -103,12 +100,12 @@ describe('POST /analysis/runs (mode=incremental)', () => {
     const incr = await postRun('incremental');
     expect(incr.status).toBe(202);
 
-    const runRes = await fetch(`${baseUrl}/analysis/runs/${incr.body.runId}`);
+    const runRes = await fetch(`${baseUrl}/projects/${PROJECT}/analysis/runs/${incr.body.runId}`);
     const run = await runRes.json();
     expect(run.mode).toBe('incremental');
     expect(run.status).toBe('completed');
 
-    const entityRes = await fetch(`${baseUrl}/entities?name=bar`);
+    const entityRes = await fetch(`${baseUrl}/projects/${PROJECT}/entities?name=bar`);
     const entities = await entityRes.json();
     expect(entities.items.some((e: any) => e.id === symbolEntityId(PROJECT, 'src/b.ts', 'bar'))).toBe(
       true,

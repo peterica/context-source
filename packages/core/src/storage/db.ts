@@ -1,5 +1,5 @@
 import type * as NodeSqlite from 'node:sqlite';
-import { SCHEMA_SQL } from './schema.js';
+import { applyMigrations } from './migrations.js';
 
 // process.getBuiltinModule을 사용한다 — 정적 `import 'node:sqlite'`는 이 신규 코어 모듈을
 // 아직 인식하지 못하는 구버전 Vite/vite-node의 빌트인 감지 로직에서 해석 오류를 일으킨다
@@ -21,6 +21,6 @@ export function openDatabase(filePath: string): Db {
   if (!row || row.foreign_keys !== 1) {
     throw new Error('Failed to enable PRAGMA foreign_keys on this SQLite connection');
   }
-  db.exec(SCHEMA_SQL);
+  applyMigrations(db);
   return db;
 }

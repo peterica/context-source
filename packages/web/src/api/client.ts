@@ -3,6 +3,7 @@ import type {
   AnalysisRunMode,
   Entity,
   EntityKind,
+  Project,
   Relationship,
   RelationshipType,
   Resolution,
@@ -31,13 +32,17 @@ async function request<T>(path: string): Promise<T> {
   return body as T;
 }
 
-async function post<T>(path: string, payload: unknown): Promise<{ status: number; body: T }> {
+async function send<T>(
+  method: 'POST' | 'PATCH' | 'DELETE',
+  path: string,
+  payload?: unknown,
+): Promise<{ status: number; body: T }> {
   const res = await fetch(`${API_BASE}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    method,
+    headers: payload !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+    body: payload !== undefined ? JSON.stringify(payload) : undefined,
   });
-  const body = await res.json();
+  const body = res.status === 204 ? (undefined as T) : await res.json();
   return { status: res.status, body };
 }
 
@@ -46,12 +51,6 @@ export function encodeEntityId(canonicalId: string): string {
   let binary = '';
   for (const b of bytes) binary += String.fromCharCode(b);
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-export interface Project {
-  id: string;
-  name: string;
-  rootPath: string;
 }
 
 export interface ProjectStats {
@@ -64,31 +63,62 @@ export interface ProjectStats {
   evidence: { total: number };
 }
 
+export interface ProjectSummary {
+  project: Project;
+  entityCount: number;
+  relationshipCount: number;
+  lastRun: AnalysisRun | null;
+}
+
+export interface CreateProjectPayload {
+  name: string;
+  path: string;
+  tsconfigPath: string;
+  id?: string;
+  description?: string;
+}
+
 export const api = {
-  getProject: () => request<{ project: Project; lastRun: AnalysisRun | null }>('/project'),
+  // ── 프로젝트 등록/목록 (ADR-0004) ──────────────────────────────────────
+  listProjects: () => request<{ items: ProjectSummary[] }>('/projects'),
 
-  getStats: () => request<ProjectStats>('/project/stats'),
+  getProjectSummary: (projectId: string) => request<ProjectSummary>(`/projects/${projectId}`),
 
-  listInferredRelationships: (limit = 50, offset = 0) =>
+  createProject: (payload: CreateProjectPayload) =>
+    send<{ project: Project } | { error: { code: string; message: string } }>('POST', '/projects', payload),
+
+  updateProject: (projectId: string, patch: { name?: string; tsconfigPath?: string; description?: string }) =>
+    send<{ project: Project }>('PATCH', `/projects/${projectId}`, patch),
+
+  deleteProject: (projectId: string) => send<void>('DELETE', `/projects/${projectId}`),
+
+  // ── 프로젝트 범위 조회 ────────────────────────────────────────────────
+  getStats: (projectId: string) => request<ProjectStats>(`/projects/${projectId}/stats`),
+
+  listInferredRelationships: (projectId: string, limit = 50, offset = 0) =>
     request<{ items: { relationship: Relationship; source: Entity; target: Entity }[]; total: number }>(
-      `/project/inferred-relationships?limit=${limit}&offset=${offset}`,
+      `/projects/${projectId}/inferred-relationships?limit=${limit}&offset=${offset}`,
     ),
 
-  searchEntities: (params: { name?: string; kind?: EntityKind; filePath?: string; limit?: number }) => {
+  searchEntities: (
+    projectId: string,
+    params: { name?: string; kind?: EntityKind; filePath?: string; limit?: number },
+  ) => {
     const q = new URLSearchParams();
     if (params.name) q.set('name', params.name);
     if (params.kind) q.set('kind', params.kind);
     if (params.filePath) q.set('filePath', params.filePath);
     q.set('limit', String(params.limit ?? 50));
-    return request<{ items: Entity[]; total: number }>(`/entities?${q.toString()}`);
+    return request<{ items: Entity[]; total: number }>(`/projects/${projectId}/entities?${q.toString()}`);
   },
 
-  getEntity: (encodedId: string) =>
+  getEntity: (projectId: string, encodedId: string) =>
     request<{ entity: Entity; relationshipCounts: { in: number; out: number } }>(
-      `/entities/${encodedId}`,
+      `/projects/${projectId}/entities/${encodedId}`,
     ),
 
   getRelationships: (
+    projectId: string,
     encodedId: string,
     params: { direction?: 'in' | 'out' | 'both'; types?: RelationshipType[]; resolution?: Resolution },
   ) => {
@@ -97,21 +127,22 @@ export const api = {
     if (params.types && params.types.length > 0) q.set('types', params.types.join(','));
     if (params.resolution) q.set('resolution', params.resolution);
     return request<{ items: { relationship: Relationship; counterpart: Entity }[]; total: number }>(
-      `/entities/${encodedId}/relationships?${q.toString()}`,
+      `/projects/${projectId}/entities/${encodedId}/relationships?${q.toString()}`,
     );
   },
 
-  getCallers: (encodedId: string) =>
+  getCallers: (projectId: string, encodedId: string) =>
     request<{ items: { relationship: Relationship; counterpart: Entity }[]; total: number }>(
-      `/entities/${encodedId}/callers`,
+      `/projects/${projectId}/entities/${encodedId}/callers`,
     ),
 
-  getCallees: (encodedId: string) =>
+  getCallees: (projectId: string, encodedId: string) =>
     request<{ items: { relationship: Relationship; counterpart: Entity }[]; total: number }>(
-      `/entities/${encodedId}/callees`,
+      `/projects/${projectId}/entities/${encodedId}/callees`,
     ),
 
   getSubgraph: (
+    projectId: string,
     encodedId: string,
     params: {
       direction?: 'in' | 'out' | 'both';
@@ -133,12 +164,15 @@ export const api = {
       relationships: Relationship[];
       truncated: boolean;
       stats: { entityCount: number; relationshipCount: number; maxDepthReached: number };
-    }>(`/entities/${encodedId}/subgraph?${q.toString()}`);
+    }>(`/projects/${projectId}/entities/${encodedId}/subgraph?${q.toString()}`);
   },
 
-  listRuns: (limit = 20) => request<{ items: AnalysisRun[] }>(`/analysis/runs?limit=${limit}`),
+  listRuns: (projectId: string, limit = 20) =>
+    request<{ items: AnalysisRun[] }>(`/projects/${projectId}/analysis/runs?limit=${limit}`),
 
-  getRun: (id: string) => request<AnalysisRun>(`/analysis/runs/${id}`),
+  getRun: (projectId: string, runId: string) =>
+    request<AnalysisRun>(`/projects/${projectId}/analysis/runs/${runId}`),
 
-  triggerRun: (mode: AnalysisRunMode) => post<{ runId: string }>('/analysis/runs', { mode }),
+  triggerRun: (projectId: string, mode: AnalysisRunMode) =>
+    send<{ runId: string }>('POST', `/projects/${projectId}/analysis/runs`, { mode }),
 };

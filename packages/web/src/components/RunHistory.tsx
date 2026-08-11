@@ -2,16 +2,16 @@ import { Fragment, useEffect, useState } from 'react';
 import type { AnalysisRun } from '@contextsource/core';
 import { api } from '../api/client.js';
 
-export function RunHistory(props: { refreshKey: number }) {
+export function RunHistory(props: { projectId: string; refreshKey: number }) {
   const [runs, setRuns] = useState<AnalysisRun[]>([]);
   const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
     api
-      .listRuns(50)
+      .listRuns(props.projectId, 50)
       .then((res) => setRuns(res.items))
       .catch((e) => console.error(e));
-  }, [props.refreshKey]);
+  }, [props.projectId, props.refreshKey]);
 
   return (
     <div>

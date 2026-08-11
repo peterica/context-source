@@ -12,6 +12,7 @@ const KIND_LABEL: Record<string, string> = {
 };
 
 export function Overview(props: {
+  projectId: string;
   refreshKey: number;
   onSelectEntity: (id: string) => void;
   onGoToReview: () => void;
@@ -21,13 +22,13 @@ export function Overview(props: {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([api.getStats(), api.getProject()])
+    Promise.all([api.getStats(props.projectId), api.getProjectSummary(props.projectId)])
       .then(([s, p]) => {
         setStats(s);
         setLastRun(p.lastRun);
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
-  }, [props.refreshKey]);
+  }, [props.projectId, props.refreshKey]);
 
   if (error) return <div className="empty">{error}</div>;
   if (!stats) return <div className="empty">불러오는 중…</div>;

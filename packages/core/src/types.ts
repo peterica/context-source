@@ -93,7 +93,27 @@ export interface AnalysisRun {
 export interface Project {
   id: string;
   name: string;
+  /** 절대 경로. workspace-root 기준 상대 경로는 등록 시점에만 쓰이고 저장되지 않는다 (ADR-0004). */
   rootPath: string;
+  /** 절대 경로. */
+  tsconfigPath: string;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateProjectInput {
+  id: string;
+  name: string;
+  rootPath: string;
+  tsconfigPath: string;
+  description?: string | null;
+}
+
+export interface UpdateProjectInput {
+  name?: string;
+  tsconfigPath?: string;
+  description?: string | null;
 }
 
 export const ANALYZER_ID = 'ts-analyzer@0.1.0';

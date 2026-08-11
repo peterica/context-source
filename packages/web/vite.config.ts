@@ -7,7 +7,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: process.env.CONTEXTSOURCE_API_URL ?? 'http://localhost:8080',
+        target: process.env.CONTEXTSOURCE_API_URL ?? 'http://localhost:9080',
         changeOrigin: true,
       },
     },

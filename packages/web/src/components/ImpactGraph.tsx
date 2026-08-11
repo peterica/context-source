@@ -26,6 +26,7 @@ export interface SubgraphState {
 }
 
 export function ImpactGraph(props: {
+  projectId: string;
   rootId: string;
   onSelectNode: (id: string) => void;
   onSelectEdge: (rel: Relationship, sourceLabel: string, targetLabel: string) => void;
@@ -42,7 +43,7 @@ export function ImpactGraph(props: {
   useEffect(() => {
     setError(null);
     api
-      .getSubgraph(encodeEntityId(props.rootId), {
+      .getSubgraph(props.projectId, encodeEntityId(props.rootId), {
         direction,
         depth,
         types: types.size < ALL_TYPES.length ? [...types] : undefined,
@@ -51,7 +52,7 @@ export function ImpactGraph(props: {
       })
       .then(setData)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
-  }, [props.rootId, direction, depth, types, resolution]);
+  }, [props.projectId, props.rootId, direction, depth, types, resolution]);
 
   useEffect(() => {
     if (!containerRef.current || !data) return;

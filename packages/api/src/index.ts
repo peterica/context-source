@@ -1,38 +1,34 @@
 #!/usr/bin/env node
 import { parseArgs } from 'node:util';
 import * as path from 'node:path';
-import { openDatabase, upsertProject } from '@contextsource/core';
+import { openDatabase } from '@contextsource/core';
 import { createApp } from './app.js';
 import { currentRevision } from './git.js';
 
 const { values } = parseArgs({
   options: {
     db: { type: 'string', default: process.env.CONTEXTSOURCE_DB ?? './data/contextsource.sqlite' },
-    'project-id': { type: 'string', default: process.env.CONTEXTSOURCE_PROJECT_ID ?? 'p1' },
-    'project-name': { type: 'string', default: process.env.CONTEXTSOURCE_PROJECT_NAME ?? 'project' },
-    'root-path': { type: 'string', default: process.env.CONTEXTSOURCE_ROOT_PATH ?? process.cwd() },
-    tsconfig: { type: 'string', default: process.env.CONTEXTSOURCE_TSCONFIG },
-    port: { type: 'string', default: process.env.PORT ?? '8080' },
+    'workspace-root': {
+      type: 'string',
+      default: process.env.CONTEXTSOURCE_WORKSPACE_ROOT ?? process.cwd(),
+    },
+    port: { type: 'string', default: process.env.PORT ?? '9080' },
   },
 });
 
 const db = openDatabase(path.resolve(values.db!));
-const projectId = values['project-id']!;
-const projectRootPath = path.resolve(values['root-path']!);
-
-upsertProject(db, { id: projectId, name: values['project-name']!, rootPath: projectRootPath });
+const workspaceRoot = path.resolve(values['workspace-root']!);
 
 const app = createApp({
   db,
-  projectId,
-  projectName: values['project-name']!,
-  projectRootPath,
-  tsconfigPath: values.tsconfig ? path.resolve(values.tsconfig) : undefined,
-  resolveRevision: () => currentRevision(projectRootPath),
+  workspaceRoot,
+  resolveRevision: (repoRoot) => currentRevision(repoRoot),
 });
 
 const port = Number(values.port);
 app.listen(port, () => {
   // eslint-disable-next-line no-console
-  console.log(`[contextsource-api] listening on http://localhost:${port}/api/v1 (project=${projectId}, db=${values.db})`);
+  console.log(
+    `[contextsource-api] listening on http://localhost:${port}/api/v1 (workspace-root=${workspaceRoot}, db=${values.db})`,
+  );
 });

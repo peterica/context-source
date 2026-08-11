@@ -4,7 +4,16 @@ export { analyzeProject, type AnalyzeProjectOptions } from './analyzer/project-a
 export { loadProgram, toProjectRelativePath } from './analyzer/program.js';
 
 export { openDatabase, type Db } from './storage/db.js';
-export { upsertProject, getProject } from './storage/project-repo.js';
+export {
+  upsertProject,
+  createProject,
+  updateProject,
+  deleteProject,
+  getProject,
+  listProjects,
+  projectExists,
+  generateProjectId,
+} from './storage/project-repo.js';
 export {
   replaceProjectGraph,
   deleteEntitiesByFilePaths,
@@ -54,6 +63,11 @@ export {
   type InferredRelationshipItem,
   type ListInferredRelationshipsResult,
 } from './query/stats.js';
+export {
+  listProjectsWithStats,
+  getProjectSummary,
+  type ProjectSummary,
+} from './query/project-queries.js';
 
 export { runFullAnalysis, type RunFullAnalysisOptions } from './orchestrator.js';
 

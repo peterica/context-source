@@ -9,7 +9,11 @@ interface RelItem {
   counterpart: Entity;
 }
 
-export function EntityExplorer(props: { entityId: string; onSelectEntity: (id: string) => void }) {
+export function EntityExplorer(props: {
+  projectId: string;
+  entityId: string;
+  onSelectEntity: (id: string) => void;
+}) {
   const [entity, setEntity] = useState<Entity | null>(null);
   const [counts, setCounts] = useState<{ in: number; out: number } | null>(null);
   const [callers, setCallers] = useState<RelItem[]>([]);
@@ -24,7 +28,11 @@ export function EntityExplorer(props: { entityId: string; onSelectEntity: (id: s
   useEffect(() => {
     setSelectedEdge(null);
     const encoded = encodeEntityId(props.entityId);
-    Promise.all([api.getEntity(encoded), api.getCallers(encoded), api.getCallees(encoded)])
+    Promise.all([
+      api.getEntity(props.projectId, encoded),
+      api.getCallers(props.projectId, encoded),
+      api.getCallees(props.projectId, encoded),
+    ])
       .then(([detail, callersRes, calleesRes]) => {
         setEntity(detail.entity);
         setCounts(detail.relationshipCounts);
@@ -32,7 +40,7 @@ export function EntityExplorer(props: { entityId: string; onSelectEntity: (id: s
         setCallees(calleesRes.items);
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
-  }, [props.entityId]);
+  }, [props.projectId, props.entityId]);
 
   if (error) return <div className="empty">{error}</div>;
   if (!entity) return <div className="empty">불러오는 중…</div>;
@@ -86,6 +94,7 @@ export function EntityExplorer(props: { entityId: string; onSelectEntity: (id: s
 
       <h2 className="section-title">영향 관계 그래프</h2>
       <ImpactGraph
+        projectId={props.projectId}
         rootId={entity.id}
         onSelectNode={props.onSelectEntity}
         onSelectEdge={(rel, sourceLabel, targetLabel) => setSelectedEdge({ rel, sourceLabel, targetLabel })}

@@ -1,8 +1,11 @@
+import * as path from 'node:path';
 import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 import {
+  createProject,
+  deleteProject,
+  generateProjectId,
   getEntity,
-  getLastCompletedRun,
-  getProject,
+  getProjectSummary,
   getProjectStats,
   getRelationshipCounts,
   getRun,
@@ -12,14 +15,21 @@ import {
   listCallers,
   listConnectedRelationships,
   listInferredRelationships,
+  listProjectsWithStats,
   listRuns,
+  projectExists,
   runFullAnalysis,
   runIncrementalAnalysis,
   searchEntities,
+  updateProject,
   type Db,
+  type Entity,
+  type Project,
+  type UpdateProjectInput,
 } from '@contextsource/core';
 import { ApiError, toApiError, toErrorBody } from './errors.js';
 import { decodeEntityId, encodeEntityId } from './id-encoding.js';
+import { requireDirectory, requireFile, resolveWithinWorkspace } from './project-paths.js';
 import {
   parseBoolean,
   parseDepth,
@@ -28,19 +38,19 @@ import {
   parseLimit,
   parseMaxNodes,
   parseOffset,
+  parseOptionalString,
+  parseProjectId,
   parseResolution,
   parseTypes,
+  requireNonEmptyString,
 } from './validators.js';
 
 export interface AppContext {
   db: Db;
-  projectId: string;
-  projectName: string;
-  projectRootPath: string;
-  /** POST /analysis/runs (mode=full)에서 사용할 tsconfig 경로. 없으면 해당 endpoint는 501을 반환한다. */
-  tsconfigPath?: string;
-  /** 분석 시점 revision을 계산한다 (기본은 고정 문자열; CLI/서버 기동부에서 git 기반 구현을 주입한다). */
-  resolveRevision?: () => string;
+  /** 프로젝트 등록(POST /projects) 시 상대 경로를 해석하는 기준 디렉터리 (ADR-0004 §1). */
+  workspaceRoot: string;
+  /** 분석 시점 revision을 프로젝트의 root_path 기준으로 계산한다 (git 저장소가 아니면 호출측이 폴백값을 반환). */
+  resolveRevision?: (repoRoot: string) => string;
 }
 
 function asyncHandler(fn: (req: Request, res: Response) => void) {
@@ -53,14 +63,22 @@ function asyncHandler(fn: (req: Request, res: Response) => void) {
   };
 }
 
-function requireEntity(db: Db, encodedId: string) {
+function requireProject(db: Db, projectId: string): Project {
+  const summary = getProjectSummary(db, projectId);
+  if (!summary) {
+    throw new ApiError('PROJECT_NOT_FOUND', `no project with id ${projectId}`);
+  }
+  return summary.project;
+}
+
+function requireEntity(db: Db, projectId: string, encodedId: string): Entity {
   const id = decodeEntityId(encodedId);
   if (id === undefined) {
     throw new ApiError('INVALID_PARAM', 'invalid encodedId (must be unpadded base64url)');
   }
   const entity = getEntity(db, id);
-  if (!entity) {
-    throw new ApiError('ENTITY_NOT_FOUND', `no entity with id ${id}`);
+  if (!entity || entity.projectId !== projectId) {
+    throw new ApiError('ENTITY_NOT_FOUND', `no entity with id ${id} in project ${projectId}`);
   }
   return entity;
 }
@@ -72,7 +90,7 @@ export function createApp(ctx: AppContext): Express {
   // 로컬 개발용 최소 CORS — 별도 패키지 의존성 없이 헤더만 설정한다.
   app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     if (req.method === 'OPTIONS') {
       res.status(204).end();
@@ -83,12 +101,97 @@ export function createApp(ctx: AppContext): Express {
 
   const router = express.Router();
 
-  // 2.1 Entity 검색 — FR-Q2
+  // ── 프로젝트 등록/목록/관리 (ADR-0004) ──────────────────────────────────
+
   router.get(
+    '/projects',
+    asyncHandler((_req, res) => {
+      res.json({ items: listProjectsWithStats(ctx.db) });
+    }),
+  );
+
+  router.post(
+    '/projects',
+    asyncHandler((req, res) => {
+      const body = (req.body ?? {}) as Record<string, unknown>;
+      const name = requireNonEmptyString(body.name, 'name');
+      const relPath = requireNonEmptyString(body.path, 'path');
+      const tsconfigRel = requireNonEmptyString(body.tsconfigPath, 'tsconfigPath');
+      const description = parseOptionalString(body.description, 'description') ?? null;
+      const explicitId = parseProjectId(body.id);
+
+      const absoluteRoot = resolveWithinWorkspace(ctx.workspaceRoot, relPath);
+      requireDirectory(absoluteRoot, 'path');
+      const absoluteTsconfig = path.isAbsolute(tsconfigRel)
+        ? tsconfigRel
+        : path.join(absoluteRoot, tsconfigRel);
+      requireFile(absoluteTsconfig, 'tsconfigPath');
+
+      if (explicitId && projectExists(ctx.db, explicitId)) {
+        throw new ApiError('PROJECT_ALREADY_EXISTS', `project ${explicitId} already exists`);
+      }
+      const id = explicitId ?? generateProjectId(ctx.db, name);
+
+      const project = createProject(ctx.db, {
+        id,
+        name,
+        rootPath: absoluteRoot,
+        tsconfigPath: absoluteTsconfig,
+        description,
+      });
+      res.status(201).json({ project });
+    }),
+  );
+
+  router.get(
+    '/projects/:projectId',
+    asyncHandler((req, res) => {
+      const summary = getProjectSummary(ctx.db, req.params.projectId!);
+      if (!summary) throw new ApiError('PROJECT_NOT_FOUND', `no project with id ${req.params.projectId}`);
+      res.json(summary);
+    }),
+  );
+
+  router.patch(
+    '/projects/:projectId',
+    asyncHandler((req, res) => {
+      const project = requireProject(ctx.db, req.params.projectId!);
+      const body = (req.body ?? {}) as Record<string, unknown>;
+      const patch: UpdateProjectInput = {};
+      if (body.name !== undefined) patch.name = requireNonEmptyString(body.name, 'name');
+      if (body.description !== undefined) {
+        patch.description = parseOptionalString(body.description, 'description') ?? null;
+      }
+      if (body.tsconfigPath !== undefined) {
+        const tsRel = requireNonEmptyString(body.tsconfigPath, 'tsconfigPath');
+        const abs = path.isAbsolute(tsRel) ? tsRel : path.join(project.rootPath, tsRel);
+        requireFile(abs, 'tsconfigPath');
+        patch.tsconfigPath = abs;
+      }
+      const updated = updateProject(ctx.db, project.id, patch);
+      res.json({ project: updated });
+    }),
+  );
+
+  router.delete(
+    '/projects/:projectId',
+    asyncHandler((req, res) => {
+      const existed = deleteProject(ctx.db, req.params.projectId!);
+      if (!existed) throw new ApiError('PROJECT_NOT_FOUND', `no project with id ${req.params.projectId}`);
+      res.status(204).end();
+    }),
+  );
+
+  // ── 프로젝트 범위 하위 리소스 ────────────────────────────────────────────
+  const projectRouter = express.Router({ mergeParams: true });
+
+  // 2.1 Entity 검색 — FR-Q2
+  projectRouter.get(
     '/entities',
     asyncHandler((req, res) => {
+      const project = requireProject(ctx.db, req.params.projectId!);
       const result = searchEntities(ctx.db, {
-        projectId: ctx.projectId,
+        projectId: project.id,
         name: typeof req.query.name === 'string' ? req.query.name : undefined,
         kind: parseKind(req.query.kind),
         filePath: typeof req.query.filePath === 'string' ? req.query.filePath : undefined,
@@ -100,20 +203,22 @@ export function createApp(ctx: AppContext): Express {
   );
 
   // 2.2 Entity 상세 — FR-V2
-  router.get(
+  projectRouter.get(
     '/entities/:encodedId',
     asyncHandler((req, res) => {
-      const entity = requireEntity(ctx.db, req.params.encodedId!);
+      const project = requireProject(ctx.db, req.params.projectId!);
+      const entity = requireEntity(ctx.db, project.id, req.params.encodedId!);
       const relationshipCounts = getRelationshipCounts(ctx.db, entity.id);
       res.json({ entity, relationshipCounts });
     }),
   );
 
   // 2.3 연결 관계 목록 — FR-V2, FR-Q5
-  router.get(
+  projectRouter.get(
     '/entities/:encodedId/relationships',
     asyncHandler((req, res) => {
-      const entity = requireEntity(ctx.db, req.params.encodedId!);
+      const project = requireProject(ctx.db, req.params.projectId!);
+      const entity = requireEntity(ctx.db, project.id, req.params.encodedId!);
       const result = listConnectedRelationships(ctx.db, {
         entityId: entity.id,
         direction: parseDirection(req.query.direction),
@@ -127,26 +232,29 @@ export function createApp(ctx: AppContext): Express {
   );
 
   // 2.4 Caller / Callee — FR-Q3
-  router.get(
+  projectRouter.get(
     '/entities/:encodedId/callers',
     asyncHandler((req, res) => {
-      const entity = requireEntity(ctx.db, req.params.encodedId!);
+      const project = requireProject(ctx.db, req.params.projectId!);
+      const entity = requireEntity(ctx.db, project.id, req.params.encodedId!);
       res.json(listCallers(ctx.db, entity.id, parseLimit(req.query.limit), parseOffset(req.query.offset)));
     }),
   );
-  router.get(
+  projectRouter.get(
     '/entities/:encodedId/callees',
     asyncHandler((req, res) => {
-      const entity = requireEntity(ctx.db, req.params.encodedId!);
+      const project = requireProject(ctx.db, req.params.projectId!);
+      const entity = requireEntity(ctx.db, project.id, req.params.encodedId!);
       res.json(listCallees(ctx.db, entity.id, parseLimit(req.query.limit), parseOffset(req.query.offset)));
     }),
   );
 
   // 2.5 서브그래프 — FR-Q4, FR-Q5, FR-Q6
-  router.get(
+  projectRouter.get(
     '/entities/:encodedId/subgraph',
     asyncHandler((req, res) => {
-      const entity = requireEntity(ctx.db, req.params.encodedId!);
+      const project = requireProject(ctx.db, req.params.projectId!);
+      const entity = requireEntity(ctx.db, project.id, req.params.encodedId!);
       const direction = parseDirection(req.query.direction, 'out');
       const result = getSubgraph(ctx.db, {
         rootId: entity.id,
@@ -162,91 +270,82 @@ export function createApp(ctx: AppContext): Express {
   );
 
   // 2.6 분석 실행 — FR-A6, FR-A7, FR-A8
-  router.post(
+  projectRouter.post(
     '/analysis/runs',
     asyncHandler((req, res) => {
+      const project = requireProject(ctx.db, req.params.projectId!);
       const mode = req.body?.mode;
       if (mode !== 'full' && mode !== 'incremental') {
         throw new ApiError('INVALID_PARAM', "mode must be 'full' or 'incremental'");
       }
-      if (isAnyRunInProgress(ctx.db, ctx.projectId)) {
+      if (isAnyRunInProgress(ctx.db, project.id)) {
         throw new ApiError('ANALYSIS_IN_PROGRESS', 'an analysis run is already in progress');
-      }
-      if (!ctx.tsconfigPath) {
-        throw new ApiError('INVALID_PARAM', 'server was not started with a tsconfig path');
       }
       if (mode === 'incremental') {
         const run = runIncrementalAnalysis({
           db: ctx.db,
-          projectId: ctx.projectId,
-          tsconfigPath: ctx.tsconfigPath,
+          projectId: project.id,
+          tsconfigPath: project.tsconfigPath,
         });
         res.status(202).json({ runId: run.id });
         return;
       }
-      const revision = ctx.resolveRevision ? ctx.resolveRevision() : 'unversioned';
+      const revision = ctx.resolveRevision ? ctx.resolveRevision(project.rootPath) : 'unversioned';
       const run = runFullAnalysis({
         db: ctx.db,
-        projectId: ctx.projectId,
-        tsconfigPath: ctx.tsconfigPath,
+        projectId: project.id,
+        tsconfigPath: project.tsconfigPath,
         revision,
       });
       res.status(202).json({ runId: run.id });
     }),
   );
 
-  router.get(
+  projectRouter.get(
     '/analysis/runs/:id',
     asyncHandler((req, res) => {
+      requireProject(ctx.db, req.params.projectId!);
       const run = getRun(ctx.db, req.params.id!);
-      if (!run) throw new ApiError('RUN_NOT_FOUND', `no run with id ${req.params.id}`);
+      if (!run || run.projectId !== req.params.projectId) {
+        throw new ApiError('RUN_NOT_FOUND', `no run with id ${req.params.id}`);
+      }
       res.json(run);
     }),
   );
 
-  router.get(
+  projectRouter.get(
     '/analysis/runs',
     asyncHandler((req, res) => {
-      res.json({ items: listRuns(ctx.db, ctx.projectId, parseLimit(req.query.limit, 20, 200)) });
+      const project = requireProject(ctx.db, req.params.projectId!);
+      res.json({ items: listRuns(ctx.db, project.id, parseLimit(req.query.limit, 20, 200)) });
     }),
   );
 
-  // 2.7 프로젝트 정보
-  router.get(
-    '/project',
-    asyncHandler((_req, res) => {
-      const project = getProject(ctx.db, ctx.projectId) ?? {
-        id: ctx.projectId,
-        name: ctx.projectName,
-        rootPath: ctx.projectRootPath,
-      };
-      const lastRun = getLastCompletedRun(ctx.db, ctx.projectId) ?? null;
-      res.json({ project, lastRun });
-    }),
-  );
-
-  // 보조 endpoint (API.md에 없는 구현 확장) — Web UI Overview/검토 화면 전용 집계·목록.
-  // 전체 그래프를 내려주지 않고 개수·페이지네이션된 review 목록만 제공해 Query-first 원칙을 지킨다.
-  router.get(
-    '/project/stats',
-    asyncHandler((_req, res) => {
-      res.json(getProjectStats(ctx.db, ctx.projectId));
-    }),
-  );
-
-  router.get(
-    '/project/inferred-relationships',
+  // 통계 / inferred 관계 검토 — API.md §2.8 (구현 확장)
+  projectRouter.get(
+    '/stats',
     asyncHandler((req, res) => {
+      const project = requireProject(ctx.db, req.params.projectId!);
+      res.json(getProjectStats(ctx.db, project.id));
+    }),
+  );
+
+  projectRouter.get(
+    '/inferred-relationships',
+    asyncHandler((req, res) => {
+      const project = requireProject(ctx.db, req.params.projectId!);
       res.json(
         listInferredRelationships(
           ctx.db,
-          ctx.projectId,
+          project.id,
           parseLimit(req.query.limit),
           parseOffset(req.query.offset),
         ),
       );
     }),
   );
+
+  router.use('/projects/:projectId', projectRouter);
 
   app.use('/api/v1', router);
 

@@ -81,7 +81,7 @@ describe('Incremental analysis against a real Git repository (FR-A6)', () => {
 
     tsconfigPath = path.join(repoDir, 'tsconfig.json');
     db = openDatabase(':memory:');
-    upsertProject(db, { id: PROJECT, name: 'incremental-fixture', rootPath: repoDir });
+    upsertProject(db, { id: PROJECT, name: 'incremental-fixture', rootPath: repoDir, tsconfigPath });
 
     const fullRun = runFullAnalysis({ db, projectId: PROJECT, tsconfigPath, revision: revA });
     expect(fullRun.status).toBe('completed');
@@ -240,7 +240,7 @@ describe('Incremental analysis preserves relationships into untouched third-part
 
     const tsconfigPath = path.join(repoDir, 'tsconfig.json');
     const db = openDatabase(':memory:');
-    upsertProject(db, { id: PROJECT, name: 'thirdfile', rootPath: repoDir });
+    upsertProject(db, { id: PROJECT, name: 'thirdfile', rootPath: repoDir, tsconfigPath });
     const full = runFullAnalysis({ db, projectId: PROJECT, tsconfigPath, revision: revA });
     expect(full.failures).toEqual([]);
 

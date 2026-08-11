@@ -119,9 +119,12 @@ ROADMAP.md 결정대로 서비스는 `api`와 `ui` 두 개뿐이다. SQLite는 `
 docker compose up --build
 ```
 
-- API: `http://localhost:8080/api/v1` — 기동 시 `samples/demo-project`를 read-only로 분석 대상 마운트
-- UI: `http://localhost:5173` — 접속 후 "전체 분석" 버튼으로 최초 분석 실행
+- API: `http://localhost:9080/api/v1` — 기동 시 `samples/demo-project`를 read-only로 분석 대상 마운트
+- UI: `http://localhost:9090` — 접속 후 "전체 분석" 버튼으로 최초 분석 실행
 - 다른 프로젝트 분석: `ANALYZE_TARGET=/absolute/path TSCONFIG_PATH=tsconfig.json docker compose up --build`
+- 포트 충돌 시: `API_PORT=9081 UI_PORT=9091 docker compose up --build`
+
+> 최초 검증 당시에는 기본 포트가 8080/5173이었으나, 이후 로컬 환경의 다른 서비스와 충돌해 9080/9090(호스트 매핑 기준)으로 변경했다. 컨테이너 내부 포트(api=8080, ui=3000)는 그대로다.
 
 **검증 완료**: 실제로 `docker compose build && docker compose up -d`를 실행해 두 이미지를 빌드하고 두 컨테이너를 기동한 뒤, `POST /analysis/runs`로 분석을 트리거하고 `GET /project/stats`가 올바른 집계를 반환하는 것과 `ui` 컨테이너의 `/api` 프록시가 `api` 컨테이너로 정상 전달되는 것을 curl로 확인했다.
 
@@ -260,3 +263,22 @@ $ make test
 4. GitHub Actions 등으로 `make typecheck && make lint && make test`를 PR마다 자동 실행하는 CI 구성.
 5. 로컬 외 환경 배포 시 HTTP API에 최소한의 인증(API key 등)을 추가.
 6. Interface 기반 호출의 recall을 높이고 싶다면, "인터페이스를 구현하는 클래스가 정확히 하나"인 경우에 한해 `inferred`로 연결하는 규칙을 ADR로 추가 검토(현재는 정확성을 우선해 보수적으로 미생성).
+
+---
+
+## 12. 부록 — Phase 2 착수: Project Entity (2026-08-11)
+
+MVP(Phase 1) 완료 이후, 사용자 요청에 따라 [ROADMAP.md](./ROADMAP.md) Phase 2 "Project Knowledge Base"의 첫 조각인 **Project Entity**를 구현했다. 설계는 [ADR-0004](./docs/adr/0004-project-entity.md)에 기록했다.
+
+**구현 요약**
+
+- `project` 테이블에 `tsconfig_path`(NOT NULL)/`description`/`updated_at` 컬럼 추가. 기존 DB는 `PRAGMA user_version` 기반 경량 마이그레이션(`packages/core/src/storage/migrations.ts`)이 연결 시점에 자동 적용한다.
+- HTTP API가 더 이상 프로젝트 하나에 고정되지 않는다 — 전체 endpoint를 `/projects/{id}/...`로 재구성(breaking change, API.md 개정)하고 `GET/POST /projects`, `GET/PATCH/DELETE /projects/{id}` 등록 API를 추가했다.
+- 소스 접근은 "상위 workspace 디렉터리 하나를 read-only 마운트 + 등록 시 상대 경로 지정" 방식을 택했다(Docker의 `WORKSPACE_ROOT`, 로컬의 `--workspace-root`). 등록된 프로젝트의 `root_path`/`tsconfig_path`는 항상 절대 경로로 저장한다.
+- MCP 서버는 의도적으로 바꾸지 않았다 — 여전히 프로세스당 프로젝트 1개(`--project-id`)로 고정된다.
+- Web UI에 프로젝트 목록/검색/등록 화면(`ProjectList`)을 추가하고, 기존 Overview/탐색/검토/이력 화면은 선택된 프로젝트로 스코프되도록 재구성(`ProjectWorkspace`)했다.
+- core 9개 신규 테스트(CRUD, 집계, 마이그레이션) + api 9개 신규 테스트(등록/조회/수정/삭제/격리/경로 검증)를 추가했다. 실제 브라우저(Playwright)로 프로젝트 2개를 등록·분석해 통계와 Entity 검색 결과가 서로 격리됨을 확인했다.
+
+**의도적으로 하지 않은 것** (ADR-0004에 명시): 기술 스택 메타데이터 수집, 유사 프로젝트 탐색, 프로젝트 간 관계 분석, MCP의 다중 프로젝트 파라미터화. 이들은 Project Entity가 자리잡은 뒤의 후속 과제다.
+
+**알려진 제한**: workspace-root 상대 경로 등록 방식은 Docker에서 "여러 프로젝트가 같은 상위 디렉터리 아래 있어야 한다"는 제약을 만든다(README §Docker Compose 참고). 서로 다른 최상위 디렉터리에 있는 프로젝트를 등록하려면 그 디렉터리들을 포함하는 더 상위 경로를 workspace-root로 잡거나, 컨테이너 재시작 시 마운트를 바꿔야 한다.

@@ -10,7 +10,7 @@ const PROJECT = 'p1';
 
 function seed(fixture: string): Db {
   const db = openDatabase(':memory:');
-  upsertProject(db, { id: PROJECT, name: fixture, rootPath: `/fixtures/${fixture}` });
+  upsertProject(db, { id: PROJECT, name: fixture, rootPath: `/fixtures/${fixture}`, tsconfigPath: fixtureTsconfig(fixture) });
   const result = analyzeProject({ tsconfigPath: fixtureTsconfig(fixture), projectId: PROJECT, revision: 'rev1' });
   replaceProjectGraph(db, PROJECT, result.entities, result.relationships);
   return db;

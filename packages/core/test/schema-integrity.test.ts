@@ -10,7 +10,7 @@ import type { Entity, Relationship } from '../src/types.js';
 
 function freshDb() {
   const db = openDatabase(':memory:');
-  upsertProject(db, { id: 'p1', name: 'Demo', rootPath: '/tmp/demo' });
+  upsertProject(db, { id: 'p1', name: 'Demo', rootPath: '/tmp/demo', tsconfigPath: '/tmp/demo/tsconfig.json' });
   return db;
 }
 

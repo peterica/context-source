@@ -1,32 +1,31 @@
 # ROADMAP.md 로컬 개발 환경: 서비스는 api/ui 두 개뿐이다.
 # SQLite는 별도 서비스가 아니라 api 컨테이너에 임베디드된 파일 DB이며,
-# 분석 대상 저장소는 api 컨테이너에 read-only로 마운트한다.
+# 여러 프로젝트의 소스 저장소는 상위 workspace 디렉터리 하나를 api 컨테이너에 read-only로 마운트한다
+# (ADR-0004). 프로젝트 등록은 Web UI 또는 POST /projects로 workspace-root 기준 상대 경로를 준다.
 services:
   api:
     build:
       context: .
       dockerfile: Dockerfile.api
     ports:
-      - '8080:8080'
+      # 호스트 포트가 이미 사용 중이면 `API_PORT=9081 docker compose up --build`처럼 덮어쓴다.
+      - '${API_PORT:-9080}:8080'
     environment:
       CONTEXTSOURCE_DB: /app/data/contextsource.sqlite
-      CONTEXTSOURCE_PROJECT_ID: ${PROJECT_ID:-demo}
-      CONTEXTSOURCE_PROJECT_NAME: ${PROJECT_NAME:-Demo Project}
-      CONTEXTSOURCE_ROOT_PATH: /workspace
-      CONTEXTSOURCE_TSCONFIG: /workspace/${TSCONFIG_PATH:-tsconfig.json}
+      CONTEXTSOURCE_WORKSPACE_ROOT: /workspaces
       PORT: 8080
     volumes:
       - contextsource-data:/app/data
-      # 분석 대상 저장소 — 기본값은 저장소에 포함된 샘플 프로젝트. 실제 사용 시
-      # `ANALYZE_TARGET=/path/to/your/project docker compose up --build`로 덮어쓴다.
-      - ${ANALYZE_TARGET:-./samples/demo-project}:/workspace:ro
+      # 여러 프로젝트를 담는 상위 디렉터리 — 기본값은 저장소에 포함된 샘플 프로젝트들의 부모 디렉터리.
+      # 실제 사용 시 `WORKSPACE_ROOT=/path/to/your/projects docker compose up --build`로 덮어쓴다.
+      - ${WORKSPACE_ROOT:-./samples}:/workspaces:ro
 
   ui:
     build:
       context: .
       dockerfile: Dockerfile.ui
     ports:
-      - '5173:3000'
+      - '${UI_PORT:-9090}:3000'
     environment:
       CONTEXTSOURCE_API_URL: http://api:8080
       PORT: 3000

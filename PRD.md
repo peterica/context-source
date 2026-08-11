@@ -2,7 +2,7 @@
 
 - **문서 버전**: 0.1 (Draft)
 - **작성일**: 2026-08-01
-- **상태**: MVP(Phase 1, M1~M5) 구현 완료 — FR별 구현 상태와 알려진 제한사항은 [IMPLEMENTATION_REPORT.md](./IMPLEMENTATION_REPORT.md) 참고
+- **상태**: MVP(Phase 1, M1~M5) 구현 완료 — FR별 구현 상태와 알려진 제한사항은 [IMPLEMENTATION_REPORT.md](./IMPLEMENTATION_REPORT.md) 참고. Phase 2 착수: Project Entity는 [ADR-0004](./docs/adr/0004-project-entity.md)로 이 PRD의 범위(단일 프로젝트) 밖에서 별도 확장됨 — 이 문서의 MVP 범위 자체는 변경되지 않았다.
 - **관련 문서**: [INIT.md](./INIT.md)
 
 ---

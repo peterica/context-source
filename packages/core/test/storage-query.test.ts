@@ -18,7 +18,7 @@ describe('storage + query engine against a real analyzed project', () => {
 
   beforeAll(() => {
     db = openDatabase(':memory:');
-    upsertProject(db, { id: PROJECT, name: 'overload-generic', rootPath: '/fixtures/overload-generic' });
+    upsertProject(db, { id: PROJECT, name: 'overload-generic', rootPath: '/fixtures/overload-generic', tsconfigPath: fixtureTsconfig('overload-generic') });
     const result = analyzeProject({
       tsconfigPath: fixtureTsconfig('overload-generic'),
       projectId: PROJECT,
@@ -152,7 +152,7 @@ describe('storage + query engine against a real analyzed project', () => {
 describe('runFullAnalysis orchestrator (analyze -> persist -> run history)', () => {
   it('records a completed analysis_run and makes results queryable', () => {
     const db = openDatabase(':memory:');
-    upsertProject(db, { id: PROJECT, name: 'basic-import', rootPath: '/fixtures/basic-import' });
+    upsertProject(db, { id: PROJECT, name: 'basic-import', rootPath: '/fixtures/basic-import', tsconfigPath: fixtureTsconfig('basic-import') });
     const run = runFullAnalysis({
       db,
       projectId: PROJECT,

@@ -88,3 +88,31 @@ export function parseBoolean(raw: unknown, def: boolean): boolean {
   if (raw === 'false') return false;
   throw new ApiError('INVALID_PARAM', 'expected a boolean query parameter (true|false)');
 }
+
+const PROJECT_ID_RE = /^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?$/;
+
+export function requireNonEmptyString(raw: unknown, field: string): string {
+  if (typeof raw !== 'string' || raw.trim().length === 0) {
+    throw new ApiError('INVALID_PARAM', `${field} must be a non-empty string`);
+  }
+  return raw.trim();
+}
+
+export function parseOptionalString(raw: unknown, field: string): string | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  if (typeof raw !== 'string') {
+    throw new ApiError('INVALID_PARAM', `${field} must be a string`);
+  }
+  return raw;
+}
+
+export function parseProjectId(raw: unknown): string | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  if (typeof raw !== 'string' || !PROJECT_ID_RE.test(raw)) {
+    throw new ApiError(
+      'INVALID_PARAM',
+      'id must be lowercase alphanumeric with hyphens (kebab-case), 1-64 chars',
+    );
+  }
+  return raw;
+}

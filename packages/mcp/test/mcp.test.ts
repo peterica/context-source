@@ -34,7 +34,7 @@ function textOf(result: { content: Array<{ type: string; text?: string }> }): un
 beforeAll(async () => {
   dbPath = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'cs-mcp-')), 'db.sqlite');
   const db = openDatabase(dbPath);
-  upsertProject(db, { id: PROJECT, name: 'overload-generic', rootPath: '/fixtures/overload-generic' });
+  upsertProject(db, { id: PROJECT, name: 'overload-generic', rootPath: '/fixtures/overload-generic', tsconfigPath: fixtureTsconfig });
   const result = analyzeProject({ tsconfigPath: fixtureTsconfig, projectId: PROJECT, revision: 'rev1' });
   replaceProjectGraph(db, PROJECT, result.entities, result.relationships);
   db.close();

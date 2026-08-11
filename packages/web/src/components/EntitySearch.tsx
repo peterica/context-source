@@ -4,7 +4,11 @@ import { api, encodeEntityId } from '../api/client.js';
 
 const KINDS: EntityKind[] = ['file', 'class', 'interface', 'function', 'method', 'external_module'];
 
-export function EntitySearch(props: { onSelect: (id: string) => void; selectedId: string | null }) {
+export function EntitySearch(props: {
+  projectId: string;
+  onSelect: (id: string) => void;
+  selectedId: string | null;
+}) {
   const [name, setName] = useState('');
   const [kind, setKind] = useState<EntityKind | ''>('');
   const [items, setItems] = useState<Entity[]>([]);
@@ -15,7 +19,7 @@ export function EntitySearch(props: { onSelect: (id: string) => void; selectedId
     setLoading(true);
     const handle = setTimeout(() => {
       api
-        .searchEntities({ name: name || undefined, kind: kind || undefined, limit: 50 })
+        .searchEntities(props.projectId, { name: name || undefined, kind: kind || undefined, limit: 50 })
         .then((res) => {
           setItems(res.items);
           setTotal(res.total);
@@ -24,7 +28,7 @@ export function EntitySearch(props: { onSelect: (id: string) => void; selectedId
         .finally(() => setLoading(false));
     }, 200);
     return () => clearTimeout(handle);
-  }, [name, kind]);
+  }, [props.projectId, name, kind]);
 
   return (
     <div>

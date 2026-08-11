@@ -8,7 +8,11 @@ interface Item {
   target: Entity;
 }
 
-export function Review(props: { refreshKey: number; onSelectEntity: (id: string) => void }) {
+export function Review(props: {
+  projectId: string;
+  refreshKey: number;
+  onSelectEntity: (id: string) => void;
+}) {
   const [items, setItems] = useState<Item[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -16,13 +20,13 @@ export function Review(props: { refreshKey: number; onSelectEntity: (id: string)
 
   useEffect(() => {
     api
-      .listInferredRelationships(limit, offset)
+      .listInferredRelationships(props.projectId, limit, offset)
       .then((res) => {
         setItems(res.items);
         setTotal(res.total);
       })
       .catch((e) => console.error(e));
-  }, [offset, props.refreshKey]);
+  }, [props.projectId, offset, props.refreshKey]);
 
   return (
     <div>

@@ -1,10 +1,14 @@
-// DATA-MODEL.md §2 DDL을 그대로 옮긴 것. 이 문서에 없는 테이블/컬럼을 추가하지 않는다.
+// DATA-MODEL.md §2 DDL 기반 + ADR-0004(Project Entity)의 확장 컬럼.
+// 기존 DB에 대한 컬럼 추가는 CREATE TABLE IF NOT EXISTS로 처리되지 않으므로 migrations.ts가 담당한다.
 export const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS project (
-  id         TEXT PRIMARY KEY,
-  name       TEXT NOT NULL,
-  root_path  TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  id            TEXT PRIMARY KEY,
+  name          TEXT NOT NULL,
+  root_path     TEXT NOT NULL,
+  tsconfig_path TEXT NOT NULL DEFAULT 'tsconfig.json',
+  description   TEXT,
+  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS entity (

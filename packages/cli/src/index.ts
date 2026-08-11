@@ -51,7 +51,7 @@ function runAnalyzeToDb(
   revision: string,
 ): void {
   const db = openDatabase(path.resolve(dbPath));
-  upsertProject(db, { id: projectId, name: projectId, rootPath: projectRoot });
+  upsertProject(db, { id: projectId, name: projectId, rootPath: projectRoot, tsconfigPath });
 
   const run =
     mode === 'full'

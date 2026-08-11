@@ -5,7 +5,7 @@
 
 두 인터페이스를 제공하며 동일한 내부 Query 서비스를 공유한다 (OQ-3, OQ-4).
 
-- **HTTP API**: Web UI 및 일반 클라이언트용. Base URL `http://localhost:8080/api/v1`
+- **HTTP API**: Web UI 및 일반 클라이언트용. Base URL `http://localhost:9080/api/v1` (기본값, `PORT`/`API_PORT` 환경변수로 변경 가능 — README.md 참고)
 - **MCP Server**: AI 에이전트용. HTTP API의 조회 기능을 MCP tool로 노출한다. **읽기 전용** — 분석 실행은 MCP로 노출하지 않는다.
 
 ---
@@ -65,8 +65,10 @@ HTTP path:    /entities/{base64url(canonical id)}
 
 | HTTP | code | 상황 |
 |------|------|------|
-| 400 | `INVALID_PARAM` | 잘못된 kind/type/depth 등 |
-| 404 | `ENTITY_NOT_FOUND` | 존재하지 않는 Entity id |
+| 400 | `INVALID_PARAM` | 잘못된 kind/type/depth 등, 또는 workspace-root를 벗어나거나 존재하지 않는 프로젝트 경로 |
+| 404 | `ENTITY_NOT_FOUND` | 존재하지 않는 Entity id (다른 프로젝트 소속인 경우도 포함) |
+| 404 | `PROJECT_NOT_FOUND` | 존재하지 않는 프로젝트 id |
+| 409 | `PROJECT_ALREADY_EXISTS` | 이미 존재하는 id로 프로젝트 등록 시도 |
 | 404 | `RUN_NOT_FOUND` | 존재하지 않는 분석 실행 id |
 | 409 | `ANALYSIS_IN_PROGRESS` | 분석 실행 중 새 분석 요청 |
 
@@ -84,10 +86,38 @@ HTTP path:    /entities/{base64url(canonical id)}
 
 ## 2. HTTP API
 
+Phase 2(ADR-0004)부터 서버는 프로젝트 하나에 고정되지 않는다. 모든 그래프 조회/분석 실행 endpoint는
+`/projects/{projectId}/...` 아래에 있다. `{projectId}`는 Entity id의 `projectId` 세그먼트와 같은 값이다.
+
+### 2.0 프로젝트 등록/관리 — ADR-0004
+
+```
+GET /projects
+```
+
+- 응답: `{ "items": [ { "project": Project, "entityCount": N, "relationshipCount": N, "lastRun": AnalysisRun | null } ] }`
+- 전체 그래프가 아니라 프로젝트별 집계만 준다 (Query-first).
+
+```
+POST /projects
+body: { "name": "My Service", "path": "my-service", "tsconfigPath": "tsconfig.json", "id"?: "my-service", "description"?: "..." }
+```
+
+- `path`는 서버의 workspace-root(`--workspace-root`/`CONTEXTSOURCE_WORKSPACE_ROOT`) 기준 상대 경로다. workspace-root를 벗어나거나 존재하지 않으면 `400 INVALID_PARAM`.
+- `tsconfigPath`는 `path`로 정해진 프로젝트 루트 기준 상대 경로다.
+- `id`를 생략하면 `name`에서 kebab-case로 자동 생성한다(충돌 시 `-2`, `-3`... 접미사).
+- 성공 시 `201`, 본문: `{ "project": Project }`. `Project`는 항상 절대 경로(`rootPath`, `tsconfigPath`)로 저장된다.
+
+```
+GET    /projects/{id}                 // { project, entityCount, relationshipCount, lastRun }
+PATCH  /projects/{id}   body: { name?, tsconfigPath?, description? }
+DELETE /projects/{id}                 // 204. entity/relationship/evidence는 CASCADE로 함께 삭제
+```
+
 ### 2.1 Entity 검색 — FR-Q2
 
 ```
-GET /entities?name={partial}&kind={kind}&filePath={prefix}&limit=&offset=
+GET /projects/{id}/entities?name={partial}&kind={kind}&filePath={prefix}&limit=&offset=
 ```
 
 - `name`: 부분 일치, 대소문자 무시. `kind`, `filePath`(접두 일치)와 AND 조합.
@@ -96,7 +126,7 @@ GET /entities?name={partial}&kind={kind}&filePath={prefix}&limit=&offset=
 ### 2.2 Entity 상세 — FR-V2
 
 ```
-GET /entities/{encodedId}
+GET /projects/{id}/entities/{encodedId}
 ```
 
 - 응답: `{ "entity": Entity, "relationshipCounts": { "in": 12, "out": 5 } }`
@@ -105,7 +135,7 @@ GET /entities/{encodedId}
 ### 2.3 연결 관계 목록 — FR-V2, FR-Q5
 
 ```
-GET /entities/{encodedId}/relationships?direction=in|out|both&types=CALLS,IMPORTS&resolution=static|inferred&limit=&offset=
+GET /projects/{id}/entities/{encodedId}/relationships?direction=in|out|both&types=CALLS,IMPORTS&resolution=static|inferred&limit=&offset=
 ```
 
 - 응답: `{ "items": [ { "relationship": Relationship, "counterpart": Entity } ], "total": 40 }`
@@ -114,8 +144,8 @@ GET /entities/{encodedId}/relationships?direction=in|out|both&types=CALLS,IMPORT
 ### 2.4 Caller / Callee — FR-Q3
 
 ```
-GET /entities/{encodedId}/callers    // 들어오는 CALLS
-GET /entities/{encodedId}/callees    // 나가는 CALLS
+GET /projects/{id}/entities/{encodedId}/callers    // 들어오는 CALLS
+GET /projects/{id}/entities/{encodedId}/callees    // 나가는 CALLS
 ```
 
 - 2.3의 `types=CALLS` 고정 단축 경로. 응답 형태는 2.3과 동일.
@@ -123,7 +153,7 @@ GET /entities/{encodedId}/callees    // 나가는 CALLS
 ### 2.5 서브그래프 — FR-Q4, FR-Q5, FR-Q6
 
 ```
-GET /entities/{encodedId}/subgraph?direction=out|in|both&depth=2&types=&resolution=&maxNodes=200&includeSnippets=true
+GET /projects/{id}/entities/{encodedId}/subgraph?direction=out|in|both&depth=2&types=&resolution=&maxNodes=200&includeSnippets=true
 ```
 
 - 응답:
@@ -144,40 +174,32 @@ GET /entities/{encodedId}/subgraph?direction=out|in|both&depth=2&types=&resoluti
 ### 2.6 분석 실행 — FR-A6, FR-A7, FR-A8
 
 ```
-POST /analysis/runs          body: { "mode": "full" | "incremental" }
+POST /projects/{id}/analysis/runs          body: { "mode": "full" | "incremental" }
 ```
 
-- 202 응답: `{ "runId": "run-01" }`. 실행 중이면 409.
+- 202 응답: `{ "runId": "run-01" }`. 실행 중이면 409. `tsconfigPath`는 프로젝트 등록 시 저장된 값을 그대로 쓴다(요청에 포함하지 않음).
 - incremental은 마지막 완료 run의 revision을 base로 git diff를 계산하고, 직전 run의 실패 파일을 변경 여부와 관계없이 재분석 대상에 합친다 (DATA-MODEL 3.2의 재분석 규칙).
 - 파일 분석이 실패하면 해당 파일의 기존 graph data를 보존하고, `failures`에 `preservedRevision`을 포함한다.
 
 ```
-GET /analysis/runs/{id}
-GET /analysis/runs?limit=
+GET /projects/{id}/analysis/runs/{runId}
+GET /projects/{id}/analysis/runs?limit=
 ```
 
-- 응답: `{ "id", "mode", "status", "revision", "baseRevision", "startedAt", "finishedAt", "entityCount", "relationshipCount", "failures": [ { "filePath", "message", "preservedRevision" } ] }`
+- 응답: `{ "id", "projectId", "mode", "status", "revision", "baseRevision", "startedAt", "finishedAt", "entityCount", "relationshipCount", "failures": [ { "filePath", "message", "preservedRevision" } ] }`
 
-### 2.7 프로젝트 정보
-
-```
-GET /project
-```
-
-- 응답: `{ "project": { "id", "name", "rootPath" }, "lastRun": { ...2.6 응답 요약 } }`
-
-### 2.8 구현 확장 — Web UI 전용 집계/검토 endpoint (claude-do.md M4)
+### 2.7 구현 확장 — Web UI 전용 집계/검토 endpoint (claude-do.md M4)
 
 이 문서 초안에는 없었으나, M4 Web UI의 "Entity/Relationship/Evidence 통계"와 "분석 실패 및 inferred 관계 검토" 화면을 구현하기 위해 추가한 보조 endpoint다. 둘 다 읽기 전용이며 전체 그래프를 내려주지 않는다(Query-first, FR-AI1 원칙 유지) — 개수 집계이거나 페이지네이션된 목록이다.
 
 ```
-GET /project/stats
+GET /projects/{id}/stats
 ```
 
 - 응답: `{ "entities": { "total", "byKind": {...} }, "relationships": { "total", "byType": {...}, "byResolution": {...} }, "evidence": { "total" } }`
 
 ```
-GET /project/inferred-relationships?limit=&offset=
+GET /projects/{id}/inferred-relationships?limit=&offset=
 ```
 
 - `resolution=inferred`인 관계를 confidence 오름차순으로 페이지네이션하여 반환한다 (검토 우선순위).
@@ -189,6 +211,8 @@ GET /project/inferred-relationships?limit=&offset=
 ## 3. MCP Tools — FR-Q7, FR-AI1, FR-AI3
 
 모든 tool은 읽기 전용이며 HTTP API와 동일한 Query 서비스를 사용한다 (Shared Context 원칙 — 사람의 UI와 AI가 같은 데이터를 본다).
+
+MCP 서버 프로세스는 (HTTP API와 달리) 여전히 프로젝트 하나에 고정된다 — 기동 시 `--project-id`로 지정한다(ADR-0004 §3). 여러 프로젝트를 다루려면 AI 클라이언트 설정에 프로젝트별로 별도 MCP 서버 항목을 등록한다. 그래서 아래 tool 파라미터에는 `project_id`가 없다.
 
 | Tool | 파라미터 | 대응 HTTP | 용도 |
 |------|----------|-----------|------|

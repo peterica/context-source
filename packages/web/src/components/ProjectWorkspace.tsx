@@ -19,9 +19,10 @@ export function ProjectWorkspace(props: {
   const { projectId, tab, selectedEntityId } = props;
   const [project, setProject] = useState<Project | null>(null);
   const [lastRun, setLastRun] = useState<AnalysisRun | null>(null);
-  const [running, setRunning] = useState(false);
+  const [runningMode, setRunningMode] = useState<'full' | 'incremental' | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const running = runningMode !== null;
 
   async function loadProject() {
     const res = await api.getProjectSummary(projectId);
@@ -34,7 +35,7 @@ export function ProjectWorkspace(props: {
   }, [projectId, refreshKey]);
 
   async function triggerRun(mode: 'full' | 'incremental') {
-    setRunning(true);
+    setRunningMode(mode);
     setRunError(null);
     try {
       const { status, body } = await api.triggerRun(projectId, mode);
@@ -48,7 +49,7 @@ export function ProjectWorkspace(props: {
     } catch (e) {
       setRunError(e instanceof Error ? e.message : String(e));
     } finally {
-      setRunning(false);
+      setRunningMode(null);
     }
   }
 
@@ -94,10 +95,10 @@ export function ProjectWorkspace(props: {
             title={!lastRun ? '먼저 전체 분석을 1회 실행해야 합니다' : undefined}
             onClick={() => triggerRun('incremental')}
           >
-            {running ? '실행 중…' : '증분 분석'}
+            {runningMode === 'incremental' ? '실행 중…' : '증분 분석'}
           </button>
           <button className="btn" disabled={running} onClick={() => triggerRun('full')}>
-            {running ? '실행 중…' : '전체 분석'}
+            {runningMode === 'full' ? '실행 중…' : '전체 분석'}
           </button>
         </div>
       </header>

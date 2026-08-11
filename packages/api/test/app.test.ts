@@ -127,9 +127,10 @@ describe('Project registry (ADR-0004)', () => {
     });
     expect(status).toBe(400);
     expect(body.error.code).toBe('INVALID_PARAM');
+    expect(body.error.message).toMatch(/[가-힣]/);
   });
 
-  it('POST /projects rejects a nonexistent path', async () => {
+  it('POST /projects rejects a nonexistent path with a Korean message that echoes only the user input, not the server absolute path', async () => {
     const { status, body } = await postJson('/projects', {
       name: 'Ghost',
       path: 'does-not-exist-dir',
@@ -137,6 +138,22 @@ describe('Project registry (ADR-0004)', () => {
     });
     expect(status).toBe(400);
     expect(body.error.code).toBe('INVALID_PARAM');
+    expect(body.error.message).toContain('does-not-exist-dir');
+    expect(body.error.message).not.toContain(workspaceRoot); // no server absolute path leak (UX audit P0-1)
+    expect(body.error.message).toMatch(/[가-힣]/); // Korean, not a raw English exception string
+  });
+
+  it('POST /projects rejects a nonexistent tsconfigPath the same way (Korean, no server absolute path)', async () => {
+    const { status, body } = await postJson('/projects', {
+      name: 'Missing Tsconfig',
+      path: 'other-repo',
+      tsconfigPath: 'does-not-exist.json',
+    });
+    expect(status).toBe(400);
+    expect(body.error.code).toBe('INVALID_PARAM');
+    expect(body.error.message).toContain('does-not-exist.json');
+    expect(body.error.message).not.toContain(workspaceRoot);
+    expect(body.error.message).toMatch(/[가-힣]/);
   });
 
   it('POST /projects with a duplicate explicit id returns 409', async () => {

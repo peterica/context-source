@@ -15,20 +15,30 @@ export function resolveWithinWorkspace(workspaceRoot: string, relativeOrAbsolute
   if (rel.startsWith('..') || path.isAbsolute(rel)) {
     throw new ApiError(
       'INVALID_PARAM',
-      `path escapes workspace root: ${relativeOrAbsolute}`,
+      `경로가 workspace root를 벗어납니다: '${relativeOrAbsolute}' (workspace root 안의 상대 경로를 입력하세요)`,
     );
   }
   return resolved;
 }
 
-export function requireDirectory(absolutePath: string, label: string): void {
+/**
+ * 사용자에게 보여줄 에러 메시지에는 서버의 절대 경로(absolutePath)가 아니라 사용자가 실제로 입력한
+ * 값(displayPath)만 노출한다 — 서버 파일시스템 구조를 노출하지 않기 위함 (UX 감사 P0-1, 2026-08-11).
+ */
+export function requireDirectory(absolutePath: string, displayPath: string, label: string): void {
   if (!fs.existsSync(absolutePath) || !fs.statSync(absolutePath).isDirectory()) {
-    throw new ApiError('INVALID_PARAM', `${label} does not exist or is not a directory: ${absolutePath}`);
+    throw new ApiError(
+      'INVALID_PARAM',
+      `${label}를 디렉터리로 찾을 수 없습니다: '${displayPath}' (workspace root 아래에 있는지, 철자가 정확한지 확인하세요)`,
+    );
   }
 }
 
-export function requireFile(absolutePath: string, label: string): void {
+export function requireFile(absolutePath: string, displayPath: string, label: string): void {
   if (!fs.existsSync(absolutePath) || !fs.statSync(absolutePath).isFile()) {
-    throw new ApiError('INVALID_PARAM', `${label} does not exist or is not a file: ${absolutePath}`);
+    throw new ApiError(
+      'INVALID_PARAM',
+      `${label}를 파일로 찾을 수 없습니다: '${displayPath}' (경로와 철자가 정확한지 확인하세요)`,
+    );
   }
 }

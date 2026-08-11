@@ -129,11 +129,11 @@ export function createApp(ctx: AppContext): Express {
       const explicitId = parseProjectId(body.id);
 
       const absoluteRoot = resolveWithinWorkspace(ctx.workspaceRoot, relPath);
-      requireDirectory(absoluteRoot, 'path');
+      requireDirectory(absoluteRoot, relPath, '프로젝트 경로');
       const absoluteTsconfig = path.isAbsolute(tsconfigRel)
         ? tsconfigRel
         : path.join(absoluteRoot, tsconfigRel);
-      requireFile(absoluteTsconfig, 'tsconfigPath');
+      requireFile(absoluteTsconfig, tsconfigRel, 'tsconfig 경로');
 
       if (explicitId && projectExists(ctx.db, explicitId)) {
         throw new ApiError('PROJECT_ALREADY_EXISTS', `project ${explicitId} already exists`);
@@ -173,7 +173,7 @@ export function createApp(ctx: AppContext): Express {
       if (body.tsconfigPath !== undefined) {
         const tsRel = requireNonEmptyString(body.tsconfigPath, 'tsconfigPath');
         const abs = path.isAbsolute(tsRel) ? tsRel : path.join(project.rootPath, tsRel);
-        requireFile(abs, 'tsconfigPath');
+        requireFile(abs, tsRel, 'tsconfig 경로');
         patch.tsconfigPath = abs;
       }
       const updated = updateProject(ctx.db, project.id, patch);

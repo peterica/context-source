@@ -50,16 +50,18 @@ ContextSource는 소스 코드를 관계(Graph) 중심으로 이해하고, 장�
 
 ### 기대 효과
 
-- 프로젝트 검색
-- 유사 프로젝트 탐색
-- 기술 스택 기반 검색
-- 프로젝트 간 관계 분석
+- 프로젝트 검색 — **구현됨** (Web UI 이름 검색, ADR-0004)
+- 유사 프로젝트 탐색 — **구현됨**, ADR-0006 (기술 스택 태그 교집합 기반, Vector Search 아님)
+- 기술 스택 기반 검색 — **구현됨**, ADR-0006 §3 (Web UI 클라이언트 필터링, 신규 endpoint 없음)
+- 프로젝트 간 관계 분석 — **구현됨**, ADR-0006 §2 (유사 프로젝트 결과에 "공유 기술 스택"을 근거로 함께 제공하는 조회 시점 설명. Project를 그래프 노드로 만들거나 영속적인 Project 간 관계를 저장하지 않는다 — claude-do.md의 "다중 Project 지식 그래프 확장" 금지사항 유지)
 
 예)
 
 - Java 21 프로젝트
 - Spring Boot 3 프로젝트
 - JPA + MySQL 프로젝트
+
+Phase 2는 위 항목으로 완결되었다. Phase 3(Semantic Code Knowledge Base)·Phase 4(AI Context Engine)는 별도 승인 전까지 착수하지 않는다.
 
 ---
 

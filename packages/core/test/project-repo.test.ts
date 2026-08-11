@@ -10,7 +10,7 @@ import {
   updateProject,
   upsertProject,
 } from '../src/storage/project-repo.js';
-import { listProjectsWithStats, getProjectSummary } from '../src/query/project-queries.js';
+import { listProjectsWithStats, getProjectSummary, findSimilarProjects } from '../src/query/project-queries.js';
 import { insertEntities } from '../src/storage/ingest.js';
 import { addTechStackEntry } from '../src/storage/tech-stack-repo.js';
 import type { Entity } from '../src/types.js';
@@ -175,6 +175,63 @@ describe('listProjectsWithStats / getProjectSummary', () => {
       { category: 'framework', value: 'React' },
       { category: 'language', value: 'TypeScript' },
     ]);
+  });
+});
+
+describe('findSimilarProjects (ADR-0006)', () => {
+  it('ranks projects by shared tech-stack tag count, descending, excluding zero-overlap and self', () => {
+    const db = freshDb();
+    createProject(db, { id: 'a', name: 'A', rootPath: '/a', tsconfigPath: '/a/tsconfig.json' });
+    createProject(db, { id: 'b', name: 'B', rootPath: '/b', tsconfigPath: '/b/tsconfig.json' });
+    createProject(db, { id: 'c', name: 'C', rootPath: '/c', tsconfigPath: '/c/tsconfig.json' });
+    createProject(db, { id: 'd', name: 'D', rootPath: '/d', tsconfigPath: '/d/tsconfig.json' });
+
+    // a: React + TypeScript + Express
+    addTechStackEntry(db, 'a', { category: 'framework', value: 'React' });
+    addTechStackEntry(db, 'a', { category: 'language', value: 'TypeScript' });
+    addTechStackEntry(db, 'a', { category: 'framework', value: 'Express' });
+    // b: shares all 3 with a
+    addTechStackEntry(db, 'b', { category: 'framework', value: 'React' });
+    addTechStackEntry(db, 'b', { category: 'language', value: 'TypeScript' });
+    addTechStackEntry(db, 'b', { category: 'framework', value: 'Express' });
+    // c: shares only TypeScript with a
+    addTechStackEntry(db, 'c', { category: 'language', value: 'TypeScript' });
+    // d: no tech stack at all -> no overlap, excluded
+
+    const results = findSimilarProjects(db, 'a', 10);
+    expect(results.map((r) => r.project.id)).toEqual(['b', 'c']);
+    expect(results[0].score).toBe(3);
+    expect(results[0].sharedTechStack).toEqual([
+      { category: 'framework', value: 'Express' },
+      { category: 'framework', value: 'React' },
+      { category: 'language', value: 'TypeScript' },
+    ]);
+    expect(results[1].score).toBe(1);
+    expect(results.some((r) => r.project.id === 'a')).toBe(false);
+    expect(results.some((r) => r.project.id === 'd')).toBe(false);
+  });
+
+  it('respects the limit parameter', () => {
+    const db = freshDb();
+    createProject(db, { id: 'a', name: 'A', rootPath: '/a', tsconfigPath: '/a/tsconfig.json' });
+    addTechStackEntry(db, 'a', { category: 'language', value: 'TypeScript' });
+    for (const id of ['b', 'c', 'd']) {
+      createProject(db, { id, name: id.toUpperCase(), rootPath: `/${id}`, tsconfigPath: `/${id}/tsconfig.json` });
+      addTechStackEntry(db, id, { category: 'language', value: 'TypeScript' });
+    }
+
+    const results = findSimilarProjects(db, 'a', 2);
+    expect(results).toHaveLength(2);
+  });
+
+  it('returns an empty array when the target project has no tech stack or does not exist', () => {
+    const db = freshDb();
+    createProject(db, { id: 'a', name: 'A', rootPath: '/a', tsconfigPath: '/a/tsconfig.json' });
+    createProject(db, { id: 'b', name: 'B', rootPath: '/b', tsconfigPath: '/b/tsconfig.json' });
+    addTechStackEntry(db, 'b', { category: 'language', value: 'TypeScript' });
+
+    expect(findSimilarProjects(db, 'a', 10)).toEqual([]);
+    expect(findSimilarProjects(db, 'nope', 10)).toEqual([]);
   });
 });
 

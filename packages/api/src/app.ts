@@ -5,6 +5,7 @@ import {
   createProject,
   deleteProject,
   detectTechStack,
+  findSimilarProjects,
   generateProjectId,
   getEntity,
   getProjectSummary,
@@ -395,6 +396,16 @@ export function createApp(ctx: AppContext): Express {
       const items = listTechStack(ctx.db, project.id);
       const added = items.filter((e) => !before.has(`${e.category}:${e.value}`));
       res.json({ items, added });
+    }),
+  );
+
+  // 유사 프로젝트 탐색 — ADR-0006 (기술 스택 태그 교집합, Vector Search 아님)
+  projectRouter.get(
+    '/similar',
+    asyncHandler((req, res) => {
+      const project = requireProject(ctx.db, req.params.projectId!);
+      const items = findSimilarProjects(ctx.db, project.id, parseLimit(req.query.limit, 10, 50));
+      res.json({ items });
     }),
   );
 

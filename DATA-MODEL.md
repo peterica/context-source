@@ -4,7 +4,7 @@
 - **근거 문서**: [PRD.md](./PRD.md) 4장(도메인 모델), 10장(OQ 결정)
 - **저장소**: SQLite 단일 파일, api 서비스가 단독 소유 (OQ-1, C7 결정)
 - **구현 상태**: 아래 DDL은 `packages/core/src/storage/schema.ts`에 그대로 적용되어 있다(문자 그대로 동일). 드라이버는 `better-sqlite3`가 아니라 Node.js 내장 `node:sqlite`이며, deferred FK 동작을 포함해 이 문서의 설계를 그대로 만족함을 테스트로 검증했다 (ADR-0001, `packages/core/test/schema-integrity.test.ts`).
-- **Phase 2 확장**: `project` 테이블은 [ADR-0004](./docs/adr/0004-project-entity.md)에서 `tsconfig_path`/`description`/`updated_at` 컬럼이 추가되어 여러 프로젝트를 검색·비교 가능한 독립 레코드로 관리한다(더 이상 단일 행 전제가 아님). 기존 DB는 `PRAGMA user_version` 기반 마이그레이션(`packages/core/src/storage/migrations.ts`)이 연결 시점에 자동으로 컬럼을 채운다. [ADR-0005](./docs/adr/0005-tech-stack-management.md)로 `project_tech_stack` 테이블이 추가되어 프로젝트별 Language/Runtime/Framework/ORM/Database/Build Tool을 관리한다(새 테이블이라 마이그레이션 불필요).
+- **Phase 2 확장**: `project` 테이블은 [ADR-0004](./docs/adr/0004-project-entity.md)에서 `tsconfig_path`/`description`/`updated_at` 컬럼이 추가되어 여러 프로젝트를 검색·비교 가능한 독립 레코드로 관리한다(더 이상 단일 행 전제가 아님). 기존 DB는 `PRAGMA user_version` 기반 마이그레이션(`packages/core/src/storage/migrations.ts`)이 연결 시점에 자동으로 컬럼을 채운다. [ADR-0005](./docs/adr/0005-tech-stack-management.md)로 `project_tech_stack` 테이블이 추가되어 프로젝트별 Language/Runtime/Framework/ORM/Database/Build Tool을 관리한다(새 테이블이라 마이그레이션 불필요). [ADR-0006](./docs/adr/0006-similar-project-discovery.md)의 유사 프로젝트 탐색은 `project_tech_stack`을 조회 시점에 집합 연산(교집합)만 수행하며, 새 테이블이나 컬럼을 추가하지 않는다 — Project 간 관계를 스키마에 영속화하지 않는다.
 
 이 문서는 PRD에 확정된 도메인 모델을 그대로 스키마로 옮긴 것이다. PRD에 없는 개념을 추가하지 않는다.
 

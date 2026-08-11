@@ -35,6 +35,7 @@ MVP(Phase 1, M1~M5)가 구현되어 있다. 상세 내용은 [IMPLEMENTATION_REP
 | M5 | 읽기 전용 MCP 서버 | 완료 |
 | Phase 2 | Project Entity — 여러 프로젝트 등록/검색/관리 ([ADR-0004](./docs/adr/0004-project-entity.md)) | 완료 |
 | Phase 2 | 기술 스택 관리 — Language/Runtime/Framework/ORM/Database/Build Tool ([ADR-0005](./docs/adr/0005-tech-stack-management.md)) | 완료 |
+| Phase 2 | 유사 프로젝트 탐색 / 프로젝트 간 관계 분석 — 기술 스택 태그 교집합 기반 ([ADR-0006](./docs/adr/0006-similar-project-discovery.md)) | 완료 |
 
 ## 아키텍처
 
@@ -114,18 +115,20 @@ Code Relationship Analyzer
 Project Knowledge Base
 
 - Project Entity (MVP의 projectId 속성을 독립 Entity로 승격) — **구현됨**, [ADR-0004](./docs/adr/0004-project-entity.md)
-- 프로젝트 검색 — **구현됨** (Web UI 프로젝트 목록 + 이름 검색)
+- 프로젝트 검색 — **구현됨** (Web UI 프로젝트 목록 + 이름/기술 스택 검색)
 - 기술 스택 관리(Language/Runtime/Framework/ORM/Database/Build Tool, package.json 기반 자동 감지) — **구현됨**, [ADR-0005](./docs/adr/0005-tech-stack-management.md)
-- 유사 프로젝트 탐색 — 미착수
+- 유사 프로젝트 탐색 / 프로젝트 간 관계 분석 — **구현됨**, [ADR-0006](./docs/adr/0006-similar-project-discovery.md) (기술 스택 태그 교집합 기반. Vector Search나 Project 간 영속적인 그래프 관계는 쓰지 않는다 — Phase 3/4 범위와 명확히 구분)
 
-### Phase 3
+Phase 2는 위 항목으로 완결되었다. 다음 단계는 벤치마크를 통한 완성도 개선이며, Phase 3/4 착수는 별도 승인 전까지 보류한다.
+
+### Phase 3 (미착수)
 Semantic Code Knowledge Base
 
 - 코드 임베딩
 - 유사 코드 검색
 - Cross Project Recommendation
 
-### Phase 4
+### Phase 4 (미착수)
 AI Context Engine
 
 - Graph + Vector Hybrid Search

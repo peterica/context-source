@@ -66,7 +66,9 @@ export {
 export {
   listProjectsWithStats,
   getProjectSummary,
+  findSimilarProjects,
   type ProjectSummary,
+  type SimilarProject,
 } from './query/project-queries.js';
 
 export {

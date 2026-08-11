@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, type ProjectStats } from '../api/client.js';
 import type { AnalysisRun } from '@contextsource/core';
 import { TechStackEditor } from './TechStackEditor.js';
+import { SimilarProjects } from './SimilarProjects.js';
 
 const KIND_LABEL: Record<string, string> = {
   file: 'File',
@@ -17,10 +18,12 @@ export function Overview(props: {
   refreshKey: number;
   onSelectEntity: (id: string) => void;
   onGoToReview: () => void;
+  onSelectProject: (projectId: string) => void;
 }) {
   const [stats, setStats] = useState<ProjectStats | null>(null);
   const [lastRun, setLastRun] = useState<AnalysisRun | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [techStackVersion, setTechStackVersion] = useState(0);
 
   useEffect(() => {
     Promise.all([api.getStats(props.projectId), api.getProjectSummary(props.projectId)])
@@ -37,7 +40,18 @@ export function Overview(props: {
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
-        <TechStackEditor projectId={props.projectId} />
+        <TechStackEditor
+          projectId={props.projectId}
+          onChange={() => setTechStackVersion((v) => v + 1)}
+        />
+      </div>
+
+      <div style={{ marginBottom: 20 }}>
+        <SimilarProjects
+          projectId={props.projectId}
+          refreshKey={props.refreshKey + techStackVersion}
+          onSelect={props.onSelectProject}
+        />
       </div>
 
       <h2 className="section-title">Entity / Relationship / Evidence 통계</h2>

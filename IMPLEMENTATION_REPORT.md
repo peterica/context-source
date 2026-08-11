@@ -300,3 +300,32 @@ Project Entity 다음으로 ROADMAP.md Phase 2의 "기술 스택 관리"를 구�
 **의도적으로 하지 않은 것** (ADR-0005에 명시): 기술 스택 기반 프로젝트 검색/유사 프로젝트 탐색(다음 Phase 2 과제), npm 레지스트리 조회나 버전 파싱, TypeScript/Node.js 이외 스택(Java/Spring 등) 감지.
 
 **알려진 제한**: 자동 감지 매핑 목록은 의도적으로 짧다(주요 프레임워크/ORM/DB 드라이버/빌드 도구 위주) — 목록에 없는 패키지는 감지되지 않으며 수동으로 추가해야 한다.
+
+---
+
+## 14. 부록 — Phase 2 완결: 유사 프로젝트 탐색 / 프로젝트 간 관계 분석, Phase 2 마무리 (2026-08-11)
+
+기술 스택 관리 다음으로 ROADMAP.md Phase 2에 남아있던 마지막 두 항목 — "유사 프로젝트 탐색"과 "프로젝트 간 관계 분석" — 을 구현하며 Phase 2를 완결했다. 사용자는 이 시점에 명시적으로 범위를 "Phase 2까지"로 확정했고(Phase 3 Semantic Code Knowledge Base·Phase 4 AI Context Engine은 착수하지 않음), Phase 2 완료 후 벤치마크로 완성도를 높이는 것을 다음 단계로 지정했다.
+
+**설계 배경**: 두 기능의 명칭만 보면 claude-do.md가 명시적으로 금지한 "Vector Search 추가"와 "다중 Project 지식 그래프 확장"과 충돌하는 것처럼 보인다(유사도 = 보통 임베딩, 관계 분석 = 보통 그래프). 이 충돌을 피하기 위해 두 금지사항을 위반하지 않는 설계를 [ADR-0006](./docs/adr/0006-similar-project-discovery.md)에 먼저 기록한 뒤 구현했다.
+
+**구현 요약**
+
+- 유사도 = 두 프로젝트의 `project_tech_stack` 태그 **교집합 크기**. 임베딩 모델·벡터 인덱스·외부 API 호출이 전혀 없는 순수 SQL/메모리 집합 연산이다.
+- "관계 분석" = Project를 그래프 노드로 만들거나 Project 간 관계를 `relationship` 테이블에 저장하는 대신, 유사 프로젝트 목록의 각 항목에 "공유 기술 스택 태그"를 조회 시점에 계산해 근거로 함께 제공한다 — Evidence-first 원칙과 같은 정신.
+- API: `GET /projects/{id}/similar?limit=` → `{ items: [{ project, sharedTechStack, score }] }`. `score` 내림차순, 동점이면 이름 오름차순, 대상 프로젝트 자신과 교집합 0인 프로젝트는 제외.
+- "기술 스택 기반 검색"은 새 endpoint 없이, 이미 `GET /projects`가 내려주는 `techStack`을 Web UI 프로젝트 목록에서 클라이언트 필터링(드롭다운)으로 구현 — 이름 검색과 동일한 패턴.
+- `findSimilarProjects`는 `project_tech_stack` 전체를 한 번의 쿼리로 읽어 프로젝트별로 메모리에서 묶은 뒤 교집합을 계산한다(대상 프로젝트마다 반복 쿼리하지 않음) — 직전 커밋에서 Codex가 지적한 N+1 패턴을 재발시키지 않기 위함.
+- Web UI: Overview 화면에 "유사한 프로젝트" 패널(SimilarProjects, 클릭 시 해당 프로젝트로 전환)을 추가하고, 프로젝트 목록 화면에 기술 스택 드롭다운 필터를 추가했다.
+- core 3개(`findSimilarProjects` 랭킹/limit/빈 결과) + api 6개(엔드포인트 통합, 404, limit 검증), 총 9개 신규 테스트. 전체 스위트 140개(api 40 + core 92 + mcp 8) 통과, typecheck/lint/production build 모두 통과.
+- 실제 브라우저(Playwright, 로컬 API+Vite dev 서버)로 임시 프로젝트 2~3개를 등록해 확인: 기술 스택 드롭다운 필터 동작, 유사 프로젝트 패널의 공유 태그·점수 표시, 패널 클릭 시 다른 프로젝트로 전환, 기술 스택 태그 제거 시 패널이 실시간으로 갱신되는 것(아래 Codex 재검증 참고)까지 전 과정을 확인했다.
+
+**Codex 재검증**: `codex review --uncommitted`로 독립 검토를 받아 실제 버그 3건을 찾아 모두 수정했다.
+
+1. `SimilarProjects` 패널이 인접한 기술 스택 편집기(`TechStackEditor`)의 변경에 반응하지 않아 stale 데이터를 보여줄 수 있었던 문제 — `TechStackEditor`에 `onChange` 콜백을 추가하고 `Overview`가 로컬 버전 카운터를 올려 `SimilarProjects`의 `refreshKey`에 반영하도록 수정.
+2. 요청 실패 시 설정된 `error`가 다음 프로젝트로 전환해도 초기화되지 않아 패널이 영구적으로 숨겨지는 문제 — effect 시작 시 `error`를 초기화하도록 수정.
+3. 프로젝트를 빠르게 전환할 때 이전 요청의 늦은 응답이 새 프로젝트의 결과를 덮어쓸 수 있는 race condition — effect cleanup에서 `cancelled` 플래그로 stale 응답을 무시하도록 수정.
+
+**의도적으로 하지 않은 것** (ADR-0006에 명시): 코드 임베딩/벡터 인덱스(Phase 3 범위), Project를 그래프 순회 가능한 노드로 만드는 것, 기술 스택 외 요인(코드 규모, 아키텍처 패턴 등)을 유사도에 반영하는 것.
+
+이로써 ROADMAP.md Phase 2 "Project Knowledge Base"의 모든 항목(Project Entity, 기술 스택 관리, 프로젝트 검색, 유사 프로젝트 탐색, 프로젝트 간 관계 분석)이 구현 완료되었다. Phase 3/4는 별도 승인 전까지 보류한다.

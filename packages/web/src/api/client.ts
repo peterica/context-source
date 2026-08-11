@@ -73,6 +73,12 @@ export interface ProjectSummary {
   techStack: TechStackEntry[];
 }
 
+export interface SimilarProject {
+  project: Project;
+  sharedTechStack: TechStackEntry[];
+  score: number;
+}
+
 export interface CreateProjectPayload {
   name: string;
   path: string;
@@ -194,4 +200,8 @@ export const api = {
       'POST',
       `/projects/${projectId}/tech-stack/detect`,
     ),
+
+  // ── 유사 프로젝트 탐색 (ADR-0006) ────────────────────────────────────────
+  getSimilarProjects: (projectId: string, limit = 10) =>
+    request<{ items: SimilarProject[] }>(`/projects/${projectId}/similar?limit=${limit}`),
 };

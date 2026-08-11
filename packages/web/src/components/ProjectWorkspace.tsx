@@ -8,7 +8,11 @@ import { RunHistory } from './RunHistory.js';
 
 type Tab = 'overview' | 'explore' | 'review' | 'history';
 
-export function ProjectWorkspace(props: { projectId: string; onBack: () => void }) {
+export function ProjectWorkspace(props: {
+  projectId: string;
+  onBack: () => void;
+  onSwitchProject: (projectId: string) => void;
+}) {
   const { projectId } = props;
   const [tab, setTab] = useState<Tab>('overview');
   const [project, setProject] = useState<Project | null>(null);
@@ -102,6 +106,7 @@ export function ProjectWorkspace(props: { projectId: string; onBack: () => void 
               refreshKey={refreshKey}
               onSelectEntity={goToEntity}
               onGoToReview={() => setTab('review')}
+              onSelectProject={props.onSwitchProject}
             />
           </div>
         )}

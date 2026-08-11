@@ -6,6 +6,7 @@ export function ProjectList(props: { onSelect: (projectId: string) => void }) {
   const [summaries, setSummaries] = useState<ProjectSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+  const [techStackFilter, setTechStackFilter] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -16,7 +17,15 @@ export function ProjectList(props: { onSelect: (projectId: string) => void }) {
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, [refreshKey]);
 
-  const filtered = summaries.filter((s) => s.project.name.toLowerCase().includes(query.toLowerCase()));
+  const allTechStackValues = Array.from(
+    new Set(summaries.flatMap((s) => s.techStack.map((e) => e.value))),
+  ).sort((a, b) => a.localeCompare(b));
+
+  const filtered = summaries.filter(
+    (s) =>
+      s.project.name.toLowerCase().includes(query.toLowerCase()) &&
+      (techStackFilter === '' || s.techStack.some((e) => e.value === techStackFilter)),
+  );
 
   return (
     <div className="content" style={{ width: '100%' }}>
@@ -41,12 +50,22 @@ export function ProjectList(props: { onSelect: (projectId: string) => void }) {
         />
       )}
 
-      <input
-        placeholder="프로젝트 이름으로 검색…"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        style={{ width: 320, marginBottom: 12 }}
-      />
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        <input
+          placeholder="프로젝트 이름으로 검색…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          style={{ width: 320 }}
+        />
+        <select value={techStackFilter} onChange={(e) => setTechStackFilter(e.target.value)}>
+          <option value="">기술 스택 전체</option>
+          {allTechStackValues.map((v) => (
+            <option key={v} value={v}>
+              {v}
+            </option>
+          ))}
+        </select>
+      </div>
 
       {error && <div className="empty">{error}</div>}
 

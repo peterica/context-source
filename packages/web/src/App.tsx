@@ -7,7 +7,11 @@ export default function App() {
 
   if (selectedProjectId) {
     return (
-      <ProjectWorkspace projectId={selectedProjectId} onBack={() => setSelectedProjectId(null)} />
+      <ProjectWorkspace
+        projectId={selectedProjectId}
+        onBack={() => setSelectedProjectId(null)}
+        onSwitchProject={setSelectedProjectId}
+      />
     );
   }
 

@@ -20,7 +20,7 @@ const CATEGORY_LABEL: Record<TechStackCategory, string> = {
   build_tool: '빌드 도구',
 };
 
-export function TechStackEditor(props: { projectId: string }) {
+export function TechStackEditor(props: { projectId: string; onChange?: () => void }) {
   const [items, setItems] = useState<TechStackEntry[]>([]);
   const [category, setCategory] = useState<TechStackCategory>('framework');
   const [value, setValue] = useState('');
@@ -52,6 +52,7 @@ export function TechStackEditor(props: { projectId: string }) {
       }
       setValue('');
       load();
+      props.onChange?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -66,6 +67,7 @@ export function TechStackEditor(props: { projectId: string }) {
         return;
       }
       load();
+      props.onChange?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -84,6 +86,7 @@ export function TechStackEditor(props: { projectId: string }) {
       setDetectMessage(
         body.added.length > 0 ? `${body.added.length}개 항목을 새로 감지했습니다.` : '새로 감지된 항목이 없습니다.',
       );
+      props.onChange?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {

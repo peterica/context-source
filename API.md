@@ -219,6 +219,18 @@ POST   /projects/{id}/tech-stack/detect                    → { "items": [...],
 - `value`는 1~50자 문자열.
 - `detect`는 프로젝트의 `package.json`(`tsconfigPath` 디렉터리 우선, 없으면 `rootPath`)을 읽어 알려진 패키지를 매핑하고 기존 항목과 병합한다. `added`는 이번 호출로 새로 추가된 항목만 포함한다(이미 있던 항목은 제외).
 
+### 2.9 유사 프로젝트 탐색 — ADR-0006 (Phase 2)
+
+```
+GET /projects/{id}/similar?limit=10
+```
+
+- 유사도 = 두 프로젝트의 기술 스택(`project_tech_stack`) 태그 **교집합 크기**. 임베딩/Vector Search가 아니며, Project를 그래프 노드나 저장된 관계로 만들지 않는 조회 시점 계산이다(claude-do.md의 "Vector Search 추가", "다중 Project 지식 그래프 확장" 금지사항을 지키기 위한 설계 — ADR-0006 참고).
+- 응답: `{ "items": [ { "project": Project, "sharedTechStack": [TechStackEntry], "score": N } ] }`. `score` 내림차순, 동점이면 프로젝트 이름 오름차순. 공유 태그가 없는 프로젝트나 대상 프로젝트 자신은 제외한다.
+- 대상 프로젝트에 등록된 기술 스택이 없으면 빈 목록을 반환한다.
+- `limit`은 1~50, 기본 10.
+- "기술 스택 기반 검색"은 별도 endpoint 없이 `GET /projects` 응답에 이미 포함된 `techStack`을 Web UI가 클라이언트에서 필터링한다(ADR-0006 §3).
+
 ---
 
 ## 3. MCP Tools — FR-Q7, FR-AI1, FR-AI3

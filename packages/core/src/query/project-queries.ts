@@ -12,6 +12,20 @@ export interface ProjectSummary {
   techStack: TechStackEntry[];
 }
 
+/** project_tech_stack 전체를 한 번에 읽어 project_id별로 묶는다 (N+1 방지, ADR-0005/0006). */
+function loadTechStackByProject(db: Db): Map<string, TechStackEntry[]> {
+  const rows = db
+    .prepare('SELECT project_id, category, value FROM project_tech_stack ORDER BY category, value')
+    .all() as unknown as { project_id: string; category: TechStackEntry['category']; value: string }[];
+  const byProject = new Map<string, TechStackEntry[]>();
+  for (const row of rows) {
+    const list = byProject.get(row.project_id) ?? [];
+    list.push({ category: row.category, value: row.value });
+    byProject.set(row.project_id, list);
+  }
+  return byProject;
+}
+
 /**
  * Web UI 프로젝트 목록 화면(ADR-0004)을 위한 조회 — 프로젝트마다 규모(Entity/Relationship 개수)와
  * 마지막 완료 run(최신 분석 revision 포함), 기술 스택(ADR-0005)을 함께 반환한다.
@@ -36,15 +50,7 @@ export function listProjectsWithStats(db: Db): ProjectSummary[] {
     .all() as unknown as { project_id: string; c: number }[];
   const relCountByProject = new Map(relRows.map((r) => [r.project_id, r.c]));
 
-  const techStackRows = db
-    .prepare('SELECT project_id, category, value FROM project_tech_stack ORDER BY category, value')
-    .all() as unknown as { project_id: string; category: TechStackEntry['category']; value: string }[];
-  const techStackByProject = new Map<string, TechStackEntry[]>();
-  for (const row of techStackRows) {
-    const list = techStackByProject.get(row.project_id) ?? [];
-    list.push({ category: row.category, value: row.value });
-    techStackByProject.set(row.project_id, list);
-  }
+  const techStackByProject = loadTechStackByProject(db);
 
   return projects.map((project) => ({
     project,
@@ -78,4 +84,36 @@ export function getProjectSummary(db: Db, id: string): ProjectSummary | undefine
     lastRun: getLastCompletedRun(db, id) ?? null,
     techStack: listTechStack(db, id),
   };
+}
+
+export interface SimilarProject {
+  project: Project;
+  sharedTechStack: TechStackEntry[];
+  score: number;
+}
+
+/**
+ * 기술 스택 태그 교집합 기반 유사 프로젝트 탐색 (ADR-0006). Vector Search나 Project 간
+ * 영속적인 관계(그래프 엣지)를 쓰지 않는다 — 조회 시점에 계산되는 파생 순위일 뿐이다.
+ * project_tech_stack을 프로젝트마다 반복 조회하지 않고 한 번에 읽어 N+1을 피한다.
+ */
+export function findSimilarProjects(db: Db, projectId: string, limit: number): SimilarProject[] {
+  const target = getProject(db, projectId);
+  if (!target) return [];
+
+  const techStackByProject = loadTechStackByProject(db);
+  const targetTags = new Set((techStackByProject.get(projectId) ?? []).map((e) => `${e.category}:${e.value}`));
+  if (targetTags.size === 0) return [];
+
+  const results: SimilarProject[] = [];
+  for (const project of listProjects(db)) {
+    if (project.id === projectId) continue;
+    const candidateTags = techStackByProject.get(project.id) ?? [];
+    const sharedTechStack = candidateTags.filter((e) => targetTags.has(`${e.category}:${e.value}`));
+    if (sharedTechStack.length === 0) continue;
+    results.push({ project, sharedTechStack, score: sharedTechStack.length });
+  }
+
+  results.sort((a, b) => b.score - a.score || a.project.name.localeCompare(b.project.name));
+  return results.slice(0, limit);
 }

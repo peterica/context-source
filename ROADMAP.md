@@ -55,11 +55,13 @@ ContextSource는 소스 코드를 관계(Graph) 중심으로 이해하고, 장�
 - 기술 스택 기반 검색 — **구현됨**, ADR-0006 §3 (Web UI 클라이언트 필터링, 신규 endpoint 없음)
 - 프로젝트 간 관계 분석 — **구현됨**, ADR-0006 §2 (유사 프로젝트 결과에 "공유 기술 스택"을 근거로 함께 제공하는 조회 시점 설명. Project를 그래프 노드로 만들거나 영속적인 Project 간 관계를 저장하지 않는다 — claude-do.md의 "다중 Project 지식 그래프 확장" 금지사항 유지)
 
-예)
+예) 기술 스택 태그가 갖춰졌을 때 가능해지는 검색/비교의 형태 — 아래는 개념 예시이며 다중 언어 지원 자체가 로드맵에 있다는 뜻은 아니다(바로 아래 주석 참고).
 
 - Java 21 프로젝트
 - Spring Boot 3 프로젝트
 - JPA + MySQL 프로젝트
+
+> **2026-08-11 명확화 (BENCHMARK.md 5.15, ADR-0007)**: 위 예시는 Project Entity/기술 스택 카탈로그가 원리적으로 어떤 검색을 지원하는지 보여주는 개념 예시일 뿐이다. 실제 코드 분석(Entity/Relationship 추출)은 TypeScript Compiler API에 결합되어 있어 TypeScript/Node.js 프로젝트에서만 동작하고(ADR-0001), 기술 스택 자동 감지도 TypeScript/Node.js 전용이다(ADR-0005 §4). Java 프로젝트를 등록하면 프로젝트 카탈로그(이름·경로·수동 태그)에는 올라가지만 코드 관계 분석은 되지 않는다. 다중 언어 지원 자체는 Phase 3/4 어디에도 배정되어 있지 않으며, ADR-0007에서 "실제 수요가 확인되기 전까지는 TypeScript 전용을 유지한다"고 명시적으로 결정했다.
 
 Phase 2는 위 항목으로 완결되었다. Phase 3(Semantic Code Knowledge Base)·Phase 4(AI Context Engine)는 별도 승인 전까지 착수하지 않는다.
 

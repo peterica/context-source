@@ -336,6 +336,8 @@ Entity 간의 방향성 있는 연결. MVP에서 지원하는 종류:
 | OQ-10 | **로드맵 분리** | MVP는 코드 관계 분석기에 집중한다. 프로젝트 지식베이스와 벡터 검색은 ROADMAP.md에서 관리한다. |
 | OQ-11 | **내부 심볼 관계만 저장, 외부 import는 ExternalModule로 축약** | 외부 코드 분석은 비목표(2.2)다. `IMPORTS`는 패키지 단위 ExternalModule 노드로 연결하고, 외부 심볼에 대한 `CALLS`는 저장하지 않는다. |
 
+> **OQ-3 후속 결정 (2026-08-11, BENCHMARK.md 5.17)**: MCP tool은 5개 고정 read 오퍼레이션(search/get/callers/callees/subgraph)뿐이라 Joern의 traversal DSL이나 CodeQL의 Query 언어처럼 임의의 복잡한 그래프 질문(예: "특정 관계 타입을 거치지 않는 모든 경로")을 표현할 수단이 없다. 이 갭은 **의도적 트레이드오프로 유지한다** — 실제 사용자가 고정 오퍼레이션으로 해결할 수 없는 질문을 반복적으로 제기하기 전까지는 Cypher류 질의 언어나 범용 그래프 traversal API를 추가하지 않는다. 단순함과 예측 가능한 응답 형태(Evidence 포함)를 유지하는 것이 지금 단계에서는 표현력 확장보다 우선한다.
+
 ---
 
 ## 11. 마일스톤 (MVP 내부 구현 순서)

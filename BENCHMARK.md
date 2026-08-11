@@ -423,17 +423,17 @@ HTTP API·MCP 모두 인증이 전혀 없다(IMPLEMENTATION_REPORT §10). PRD NF
 
 **2026-08-11 수정 완료**: `.github/workflows/ci.yml`을 추가해 push/PR마다 `build → typecheck → lint → test`를 자동 실행한다(IMPLEMENTATION_REPORT §11-4 기존 권고 재확인 및 반영).
 
-### 5.14 P1 — 확장성(NFR-7) 결정
+### 5.14 P1 — [해결됨] 확장성(NFR-7) 결정
 
-PRD NFR-7은 "Parser/Resolver 플러그인화"를 요구하지만 실제 플러그인 인터페이스는 없다(TypeScript 전용, IMPLEMENTATION_REPORT §8). Joern(언어별 frontend 분리), Sourcegraph(SCIP로 인덱서·소비 계층 분리)와 비교하면 이 축은 목표만 있고 구현된 확장점이 없다.
+PRD NFR-7은 "Parser/Resolver 플러그인화"를 요구하지만 실제 플러그인 인터페이스는 없었다(TypeScript 전용, IMPLEMENTATION_REPORT §8). Joern(언어별 frontend 분리), Sourcegraph(SCIP로 인덱서·소비 계층 분리)와 비교하면 이 축은 목표만 있고 구현된 확장점이 없어 애매한 상태였다.
 
-- NFR-7을 "지금은 TypeScript 전용으로 남긴다"는 명시적 결정으로 문서화하거나, 실제 확장 인터페이스를 설계한다 — 애매하게 열어두지 않는다.
+**2026-08-11 결정 완료**: [ADR-0007](./docs/adr/0007-extensibility-scope-decision.md)에서 "지금은 TypeScript 전용으로 남기고 실제 플러그인 인터페이스는 설계하지 않는다"를 명시적으로 결정했다. 다중 언어 지원이 실제로 필요해지는 시점에는 자체 인터페이스보다 5.8이 제안한 SCIP 어댑터 경로를 먼저 검토한다.
 
-### 5.15 P1 — 다중 언어 로드맵 명시
+### 5.15 P1 — [해결됨] 다중 언어 로드맵 명시
 
-ROADMAP.md Phase 3/4는 Vector/임베딩 확장만 다루고 다중 언어 지원 자체는 어느 Phase에도 배정되어 있지 않다. 반면 ROADMAP.md 본문은 "Java 21 프로젝트", "Spring Boot 3 프로젝트" 같은 예시를 들어 다중 언어를 암시한다. 자동 감지는 TypeScript/Node.js 전용(ADR-0005 §4)이므로 이 예시는 현재 구현 범위보다 과장된 인상을 준다.
+ROADMAP.md Phase 3/4는 Vector/임베딩 확장만 다루고 다중 언어 지원 자체는 어느 Phase에도 배정되어 있지 않았다. 반면 ROADMAP.md 본문은 "Java 21 프로젝트", "Spring Boot 3 프로젝트" 같은 예시를 들어 다중 언어를 암시했다 — 자동 감지가 TypeScript/Node.js 전용(ADR-0005 §4)이라 실제 구현 범위보다 과장된 인상을 줬다.
 
-- 다중 언어 지원을 실제 로드맵 항목으로 배정하거나, 예시 문구를 현재 범위(TypeScript 전용)에 맞게 수정한다.
+**2026-08-11 수정 완료**: ROADMAP.md Phase 2 예시 문구에 "이는 개념 예시일 뿐 다중 언어 지원이 로드맵에 있다는 뜻이 아니다"라는 명확화 주석을 추가하고, ADR-0007(5.14)의 결정을 함께 인용했다.
 
 ### 5.16 P1 — 배포/운영 성숙도 보강
 
@@ -442,11 +442,11 @@ ROADMAP.md Phase 3/4는 Vector/임베딩 확장만 다루고 다중 언어 지�
 - Docker healthcheck, 최소 로깅/메트릭을 추가한다.
 - SQLite 백업 절차를 README.md 또는 별도 운영 문서에 명시한다.
 
-### 5.17 P1 — Query 표현력 갭 공식 채택
+### 5.17 P1 — [해결됨] Query 표현력 갭 공식 채택
 
-MCP tool은 5개 고정 read 오퍼레이션(search/get/callers/callees/subgraph)뿐이고, PRD OQ-3에서 "자체 Query API 우선, 향후 Cypher 변환 어댑터 검토"로 결론지었지만 실제 자유 질의 언어는 없다. Joern의 traversal DSL, CodeQL의 Query 언어와 비교하면 임의의 복잡한 그래프 질문을 표현할 수단이 없다 — 이는 의도된 트레이드오프(단순함 우선)이므로 심각도는 낮지만, 지금까지 벤치마크 기준으로 공식 채택되지 않았다.
+MCP tool은 5개 고정 read 오퍼레이션(search/get/callers/callees/subgraph)뿐이고, PRD OQ-3에서 "자체 Query API 우선, 향후 Cypher 변환 어댑터 검토"로 결론지었지만 실제 자유 질의 언어는 없었다. Joern의 traversal DSL, CodeQL의 Query 언어와 비교하면 임의의 복잡한 그래프 질문을 표현할 수단이 없다 — 의도된 트레이드오프(단순함 우선)이지만 지금까지는 벤치마크 기준으로 공식 채택되지 않았다.
 
-- 이 갭을 "언젠가 다룰 것"인지 "의도적으로 안 할 것"인지 로드맵에 결정으로 남긴다.
+**2026-08-11 결정 완료**: PRD.md OQ-3에 "실제 사용자가 고정 오퍼레이션으로 풀 수 없는 질문을 반복 제기하기 전까지는 확장하지 않는다"는 후속 결정을 추가했다 — "언젠가 다룰 것"이 아니라 "지금은 의도적으로 안 함"으로 명시했다.
 
 ### 5.18 P2 — 문서 발견성 (OpenAPI)
 

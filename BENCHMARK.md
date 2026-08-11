@@ -1,9 +1,10 @@
 # ContextSource 경쟁 서비스 벤치마킹
 
-- **문서 버전**: 0.1 (Draft)
+- **문서 버전**: 0.2
 - **작성일**: 2026-08-04
-- **조사 기준일**: 2026-08-04
-- **관련 문서**: [PRD.md](./PRD.md), [ROADMAP.md](./ROADMAP.md), [API.md](./API.md)
+- **최종 개정일**: 2026-08-11 — 개정 배경과 세부 변경 내역은 [8. 개정 이력](#8-개정-이력) 참고
+- **조사 기준일**: 2026-08-04 (§3 제품별 분석), 2026-08-11 (§2 CodeSee 상태, §5 신규 항목)
+- **관련 문서**: [PRD.md](./PRD.md), [ROADMAP.md](./ROADMAP.md), [API.md](./API.md), [IMPLEMENTATION_REPORT.md](./IMPLEMENTATION_REPORT.md)
 
 ---
 
@@ -32,10 +33,13 @@ AI용 구조화 Context
 | 제품/기술 | 핵심 강점 | ContextSource와 겹치는 영역 | 직접 경쟁도 |
 |-----------|-----------|------------------------------|-------------|
 | Sourcegraph | 정확한 코드 탐색과 대규모 검색 | 심볼 관계, 참조 탐색, AI Context | 매우 높음 |
-| CodeSee | 코드 및 PR 관계 시각화 | 영향 그래프, 온보딩, 변경 리뷰 | 높음 |
+| CodeSee → GitKraken | 코드 및 PR 관계 시각화 | 영향 그래프, 온보딩, 변경 리뷰 | 낮음 — 독립 제품으로는 단종 (아래 3.2 참고) |
 | GitHub Copilot | 자연어 기반 코드베이스 탐색 | AI Context 소비 경험 | 중간 |
 | CodeQL | 컴파일 기반 의미 분석과 경로 설명 | 정확한 관계 분석, Evidence | 중간 |
 | Joern | 확장 가능한 Code Property Graph | 그래프 모델과 자유로운 관계 Query | 중간 |
+| Backstage | 서비스 카탈로그·소유권·기술 스택 메타데이터 중심 개발자 포털 | 프로젝트 등록/검색, 기술 스택 태깅, 유사 프로젝트 탐색 (Phase 2) | 높음 — 아래 3.6 참고 |
+
+Phase 2에서 ContextSource가 실제로 갖게 된 기능(여러 프로젝트 등록·검색, 기술 스택 태깅, 유사 프로젝트 탐색)은 코드 관계 분석기가 아니라 Backstage류 "서비스 카탈로그/개발자 포털" 제품군과 정면으로 겹친다. 최초 작성(2026-08-04) 시점에는 이 카테고리가 누락되어 있었다 — 경쟁 벤치마킹 재검토(2026-08-11)에서 추가했다.
 
 ---
 
@@ -73,9 +77,11 @@ Sourcegraph는 ContextSource와 가장 가까운 성숙 제품이다. 검색 기
 - [Sourcegraph Precise Code Navigation](https://sourcegraph.com/docs/code-navigation/precise-code-navigation)
 - [Sourcegraph Cody Context](https://sourcegraph.com/docs/cody/core-concepts/context)
 
-### 3.2 CodeSee
+### 3.2 CodeSee (→ GitKraken에 흡수, 2024)
 
-CodeSee는 코드베이스를 대화형 지도 형태로 표현하고 PR마다 Review Map을 생성한다. 변경된 파일뿐 아니라 변경 파일에 의존하는 미변경 파일도 영향 후보로 표시하며, 새 커밋이 추가되면 지도를 갱신한다.
+> **2026-08-11 갱신**: CodeSee는 2024-02-22 상용 서비스를 종료했고, 같은 해 5월 GitKraken에 인수되어 그 기능이 GitKraken의 코드 시각화 도구로 흡수됐다. 즉 **독립 제품으로서의 CodeSee는 더 이상 존재하지 않는다** — 최초 작성(2026-08-04) 시점의 "직접 경쟁도: 높음" 평가는 "현재 운영 중인 경쟁자"를 전제로 했으므로 오해의 소지가 있다. 다만 아래 Review Map 개념 자체와 그로부터 얻는 시사점은 여전히 유효하므로 분석은 그대로 남기고, §2 표의 경쟁도만 "낮음"으로 수정했다. ([CodeSee 종료 공지](https://www.linkedin.com/feed/update/urn:li:activity:7163970333912289281), [GitKraken 인수](https://pitchbook.com/profiles/company/458764-48))
+
+CodeSee는 코드베이스를 대화형 지도 형태로 표현하고 PR마다 Review Map을 생성했다. 변경된 파일뿐 아니라 변경 파일에 의존하는 미변경 파일도 영향 후보로 표시하며, 새 커밋이 추가되면 지도를 갱신했다.
 
 **장점**
 
@@ -193,6 +199,36 @@ Joern은 AST, 제어 흐름, 데이터 흐름을 하나의 Code Property Graph�
 - [Joern Code Property Graph](https://docs.joern.io/code-property-graph/)
 - [Joern Traversal Basics](https://docs.joern.io/traversal-basics/)
 
+### 3.6 Backstage (2026-08-11 추가)
+
+Backstage는 Spotify가 만들어 CNCF(Cloud Native Computing Foundation)에 기증한 오픈소스 개발자 포털 프레임워크다. 핵심은 **Software Catalog** — 서비스·라이브러리·웹사이트·데이터 파이프라인 등 조직의 모든 소프트웨어를 코드와 함께 저장되는 YAML 메타데이터(`catalog-info.yaml`)로 등록하고, 이를 수집해 검색·소유권 추적이 가능한 카탈로그로 시각화한다. 2026년 기준 Netflix, American Airlines, Expedia 등 3,000개 이상 기업이 사용하는, 이 카테고리의 사실상 표준이다.
+
+**장점**
+
+- 서비스/소유권/기술 스택 메타데이터를 표준화된 YAML 스키마로 관리한다.
+- 카탈로그 외에 CI/CD, 문서, 비용, Tech Radar 등 수십 개 플러그인으로 확장 가능한 생태계가 있다.
+- 대규모 조직(수천 개 서비스)에서 실제로 검증됐다.
+- 오픈소스이며 CNCF 프로젝트로 거버넌스가 있다.
+
+**단점**
+
+- 코드 "관계"(호출·상속·참조) 자체는 다루지 않는다 — 카탈로그는 서비스 단위 메타데이터일 뿐, ContextSource의 Entity/Relationship/Evidence 같은 코드 내부 구조 분석이 없다.
+- 카탈로그 정확성이 각 팀이 `catalog-info.yaml`을 얼마나 성실히 관리하느냐에 의존한다 — 자동 감지보다 수동 등록이 기본 모델이다.
+- 프레임워크 자체(React 앱 + 백엔드)를 구축·운영해야 해서 초기 셋업 비용이 크다 — ContextSource가 지향하는 "가볍게 로컬에서 바로 실행"과는 반대 방향이다.
+
+**ContextSource 적용점**
+
+- 기술 스택 태깅을 수동 YAML 작성이 아니라 `package.json` 자동 감지로 시작한 것(ADR-0005)은 Backstage 대비 온보딩 마찰이 적다는 명확한 차별점이다 — 포지셔닝에 명시할 가치가 있다.
+- Backstage에는 없는 "코드 관계 그래프 + Evidence"가 ContextSource의 핵심 차별화 축임을 재확인한다 — 즉 두 제품은 겹치는 영역(카탈로그)과 겹치지 않는 영역(관계 그래프)이 함께 있는 관계다.
+- Backstage는 소유권(owner) 개념을 카탈로그의 1급 필드로 둔다 — ContextSource의 Project Entity(ADR-0004)에는 아직 소유권/팀 개념이 없다. 실제 필요가 확인되면 후속 검토 대상.
+- 장기적으로 `catalog-info.yaml`과의 메타데이터 호환(예: 기술 스택 정보를 Backstage 카탈로그로 export)을 검토할 수 있다 — 이는 claude-do.md의 "다중 Project 지식 그래프 확장" 금지와는 무관한 순수 메타데이터 상호운용 이슈다.
+
+**공식 자료**
+
+- [What is Backstage?](https://backstage.io/docs/overview/what-is-backstage/)
+- [Backstage Software Catalog](https://backstage.io/docs/features/software-catalog/)
+- [backstage/backstage (GitHub)](https://github.com/backstage/backstage)
+
 ---
 
 ## 4. ContextSource의 차별화 가능성
@@ -208,6 +244,8 @@ Joern은 AST, 제어 흐름, 데이터 흐름을 하나의 Code Property Graph�
 
 개별 기능은 경쟁 제품에도 존재하지만 **로컬·경량·Evidence-first·사람과 AI의 공통 그래프**라는 조합은 차별화 가능성이 있다.
 
+**Phase 2 추가분(2026-08-11 갱신)**: Project Entity(ADR-0004)·기술 스택 관리(ADR-0005)·유사 프로젝트 탐색(ADR-0006)으로 "여러 프로젝트를 등록·검색·비교"하는 카탈로그 성격이 더해졌다. 이는 3.6절의 Backstage류 제품과 겹치는 영역이지만, ContextSource는 (1) 수동 YAML 대신 `package.json` 자동 감지로 시작하고 (2) 카탈로그 메타데이터가 Evidence 기반 코드 관계 그래프와 같은 저장소·같은 조회 계층을 공유한다는 점에서 다르다 — 즉 ContextSource는 "카탈로그 제품에 코드 그래프를 얹은 것"이 아니라 "코드 관계 그래프에 최소한의 카탈로그 레이어가 자연스럽게 얹힌 것"에 가깝다. 다만 유사 프로젝트 탐색은 기술 스택 태그 교집합이라는 단순 집합 연산이며(ADR-0006), Vector Search나 Project 간 영속적 그래프 관계가 아니다 — claude-do.md의 금지사항을 지키기 위한 의도적 설계다.
+
 권장 포지셔닝:
 
 > ContextSource는 코드를 예쁘게 시각화하는 도구가 아니라, 개발자와 AI가 동일하게 조회할 수 있는 증거 기반 코드 관계 인덱스다.
@@ -215,6 +253,8 @@ Joern은 AST, 제어 흐름, 데이터 흐름을 하나의 Code Property Graph�
 ---
 
 ## 5. 개선 과제
+
+> **2026-08-11 추가**: 이 프로젝트의 최초 구현 지시서(claude-do.md)는 (1) Vector Search 추가, (2) 다중 Project 지식 그래프 확장, (3) 소스 코드를 외부 SaaS/AI API로 전송을 명시적으로 금지한다. 이 제약은 여전히 유효하며, 아래 5.6·5.8과 신규 항목 어디에도 이를 무효화하는 결정은 없다. 5.6이 언급하는 "Phase 4의 Vector Search 결합"은 별도 승인 전까지 착수하지 않는 먼 미래 항목이며, Phase 2에서 실제로 구현된 "유사 프로젝트 탐색"(ADR-0006)은 이름이 비슷해 보여도 순수 태그 교집합 계산일 뿐 Vector Search가 아니다 — 두 개념을 혼동하지 않도록 주의.
 
 ### 5.1 P0 — 변경 영향 분석의 의미 정의
 
@@ -296,6 +336,8 @@ PRD의 `static false positive 0%, recall 95%` 목표를 측정할 골든 fixture
 
 각 fixture에 예상 Entity, Relationship, resolution, Evidence를 선언하고 CI에서 비교한다.
 
+> **상태 (2026-08-11)**: **미착수.** 골든 fixture 9종은 이미 저장소에 있고 CI 없이 로컬 `make test`로 통과하지만, PRD의 `static false positive 0%, recall 95%` 수치 자체를 실제 중형~대형 오픈소스 TypeScript 프로젝트로 측정한 적은 없다(IMPLEMENTATION_REPORT.md §9). 5.11(신규)이 이 갭을 성능 축까지 포함해 더 구체화한다.
+
 ### 5.5 P1 — 정밀 분석 실패 시 폴백 모델 추가
 
 결과 품질을 다음처럼 구분하는 방안을 검토한다.
@@ -321,6 +363,8 @@ MCP의 원시 조회 tool 위에 다음 기능을 수행하는 Context Builder�
 
 Phase 1에서는 Graph-only로 구현하고 Phase 4에서 Vector Search와 결합한다.
 
+> **2026-08-11 주석**: 여기서 말하는 "Context Builder"는 아직 착수하지 않았다 — Phase 2의 "유사 프로젝트 탐색"(ADR-0006, 기술 스택 태그 교집합)과는 완전히 다른 기능이니 혼동하지 말 것. Phase 4의 Vector Search 결합은 claude-do.md의 금지사항과 직결되므로 별도 승인 없이는 착수하지 않는다.
+
 ### 5.7 P1 — 작업 중심·계층형 시각화
 
 전체 그래프 화면 하나 대신 최소 세 가지 뷰를 제공한다.
@@ -345,6 +389,84 @@ SCIP Importer ───────┼→ Normalized Relationship Model
 
 SCIP가 직접 제공하지 않는 호출 관계와 ContextSource Evidence는 별도 확장 계층으로 유지한다.
 
+### 5.9 P0 — 신규 경쟁 카테고리 대응: 프로젝트 카탈로그 포지셔닝 명확화 (2026-08-11 추가)
+
+3.6절에서 다뤘듯 Phase 2의 프로젝트 등록/기술 스택/유사 프로젝트 탐색은 Backstage류 "내부 개발자 포털" 카테고리와 겹친다. 이 문서(그리고 README.md의 포지셔닝 문구)가 여전히 "코드 관계 분석기"만을 전제로 서술되어 있어, 실제 제품 범위와 대외 포지셔닝이 어긋나 있다.
+
+- README.md·PRD.md의 제품 소개 문구에 "프로젝트 카탈로그" 성격을 간단히라도 반영할지 검토한다.
+- Backstage와 달리 자동 감지 기반이라는 차별점(4절 참고)을 마케팅/문서 포지셔닝에 명시한다.
+- 카탈로그 기능을 더 키울지(Backstage와 정면 경쟁), 코드 관계 그래프의 보조 기능으로 의도적으로 얕게 유지할지 방향을 결정한다 — 결정 자체가 로드맵에 없다.
+
+### 5.10 P0 — [해결됨] 유사 프로젝트 스코어링 결함
+
+경쟁 벤치마킹 서브에이전트가 소스 코드 확인만으로 재현한 실제 결함이었다: `detectTechStack()`(ADR-0005)이 모든 프로젝트에 예외 없이 `language: TypeScript`/`runtime: Node.js`를 부여하는데(현재 시스템이 TS/Node 전용이라 사실상 상수), ADR-0006의 유사도가 순수 태그 교집합 크기였던 탓에 프레임워크·ORM·데이터베이스가 전혀 겹치지 않는 두 프로젝트도 이 상수 태그 2개만으로 항상 최소 2점의 "유사도"를 갖고 있었다.
+
+**2026-08-11 수정 완료**: `findSimilarProjects`의 교집합 계산에서 `language`/`runtime` 카테고리를 제외하도록 수정했다(ADR-0006 수정 이력 참고, 회귀 테스트 포함). 이 항목은 벤치마크 문서의 개선 과제가 아니라 실제 코드 수정으로 이미 닫혔다 — 기록으로만 남긴다.
+
+### 5.11 P0 — 성능·정확도 실측 (NFR-2/3/4, recall 95%)
+
+PRD 9장의 성공 지표(`static` false positive 0%, recall 95%, 증분 처리 5% 이하, 10만 LOC 수 분 이내, p95 조회 1초 이내)는 IMPLEMENTATION_REPORT.md §9에서 스스로 "측정하지 않았다"고 인정한다. 현재까지의 검증은 골든 fixture 9종 + 7파일짜리 데모 프로젝트가 전부다. Sourcegraph/CodeQL처럼 실제 초대형 코드베이스에서 검증된 제품과 비교하면, ContextSource의 핵심 주장(NFR-5 정확성 우선)이 무검증 상태로 남아 있다는 점을 이 문서가 감추지 않고 명시해야 한다.
+
+- 중형~대형 오픈소스 TypeScript 프로젝트(예: 10만 LOC 이상) 하나 이상으로 실측한다.
+- 측정 결과를 이 문서 또는 별도 벤치마크 리포트에 수치로 남긴다 — "측정 예정"이 아니라 "측정함 → 수치"로 문서를 갱신한다.
+
+### 5.12 P0 — 보안/인증 로드맵 명문화
+
+HTTP API·MCP 모두 인증이 전혀 없다(IMPLEMENTATION_REPORT §10). PRD NFR-6("로컬 또는 사용자 통제 환경")이 이를 정당화했지만, Phase 2에서 이미 "여러 프로젝트를 하나의 서버가 관리"하는 형태로 진화했고 Docker Compose는 포트를 호스트에 바인딩해 네트워크로 노출한다. 프로젝트 삭제(`DELETE /projects/{id}`)는 CASCADE로 관련 데이터를 전부 지우는데 이를 막을 권한 체계가 없다.
+
+- "언제까지 로컬 단일 사용자 전제가 유효한지"를 로드맵에 명시적으로 결정한다.
+- 최소한 파괴적 오퍼레이션(삭제, 등록)에 대한 API key 같은 최소 보호장치를 P1로 검토한다(IMPLEMENTATION_REPORT §11-5 기존 권고와 연결).
+
+### 5.13 P1 — CI 자동화
+
+140개 이상의 테스트, 골든 fixture, 스키마 무결성 테스트, 증분==full scan 동등성 테스트 등 품질 자산은 CodeQL의 "Query와 테스트로 반복 검증" 철학과 견줄 만하다. 그런데 이 엄격함이 로컬에서 사람이 수동으로 `make test`를 돌릴 때만 보장되고, PR/커밋마다 자동으로 강제되지 않는다.
+
+- GitHub Actions 등으로 `make typecheck && make lint && make test`를 PR마다 자동 실행한다(IMPLEMENTATION_REPORT §11-4 기존 권고 재확인).
+
+### 5.14 P1 — 확장성(NFR-7) 결정
+
+PRD NFR-7은 "Parser/Resolver 플러그인화"를 요구하지만 실제 플러그인 인터페이스는 없다(TypeScript 전용, IMPLEMENTATION_REPORT §8). Joern(언어별 frontend 분리), Sourcegraph(SCIP로 인덱서·소비 계층 분리)와 비교하면 이 축은 목표만 있고 구현된 확장점이 없다.
+
+- NFR-7을 "지금은 TypeScript 전용으로 남긴다"는 명시적 결정으로 문서화하거나, 실제 확장 인터페이스를 설계한다 — 애매하게 열어두지 않는다.
+
+### 5.15 P1 — 다중 언어 로드맵 명시
+
+ROADMAP.md Phase 3/4는 Vector/임베딩 확장만 다루고 다중 언어 지원 자체는 어느 Phase에도 배정되어 있지 않다. 반면 ROADMAP.md 본문은 "Java 21 프로젝트", "Spring Boot 3 프로젝트" 같은 예시를 들어 다중 언어를 암시한다. 자동 감지는 TypeScript/Node.js 전용(ADR-0005 §4)이므로 이 예시는 현재 구현 범위보다 과장된 인상을 준다.
+
+- 다중 언어 지원을 실제 로드맵 항목으로 배정하거나, 예시 문구를 현재 범위(TypeScript 전용)에 맞게 수정한다.
+
+### 5.16 P1 — 배포/운영 성숙도 보강
+
+`docker-compose.yml`에 healthcheck, 로그 수집, 메트릭 endpoint가 없다. SQLite 파일 백업/복구 절차도 문서화되어 있지 않다. ROADMAP.md는 "SQLite 파일의 쓰기 주체는 api 하나로 제한"이라는 설계를 명시하는데, 이는 의도적이지만 동시에 팀 규모가 커지면 명백한 처리량 상한이 된다.
+
+- Docker healthcheck, 최소 로깅/메트릭을 추가한다.
+- SQLite 백업 절차를 README.md 또는 별도 운영 문서에 명시한다.
+
+### 5.17 P1 — Query 표현력 갭 공식 채택
+
+MCP tool은 5개 고정 read 오퍼레이션(search/get/callers/callees/subgraph)뿐이고, PRD OQ-3에서 "자체 Query API 우선, 향후 Cypher 변환 어댑터 검토"로 결론지었지만 실제 자유 질의 언어는 없다. Joern의 traversal DSL, CodeQL의 Query 언어와 비교하면 임의의 복잡한 그래프 질문을 표현할 수단이 없다 — 이는 의도된 트레이드오프(단순함 우선)이므로 심각도는 낮지만, 지금까지 벤치마크 기준으로 공식 채택되지 않았다.
+
+- 이 갭을 "언젠가 다룰 것"인지 "의도적으로 안 할 것"인지 로드맵에 결정으로 남긴다.
+
+### 5.18 P2 — 문서 발견성 (OpenAPI)
+
+내부 문서(PRD/ROADMAP/ADR/API.md/DATA-MODEL.md/IMPLEMENTATION_REPORT.md)의 완성도는 이례적으로 높지만, 외부 개발자가 API를 발견하는 경로(OpenAPI/Swagger 스펙, 검색 가능한 문서 사이트)는 없다 — API.md는 손으로 쓴 마크다운뿐이다.
+
+- API.md 기반 OpenAPI 스펙 자동 생성을 검토한다.
+
+### 5.19 P2 — 라이선스·배포 모델과 커뮤니티 0일차 명시
+
+저장소에 LICENSE 파일이 없다 — OSS 공개 여부, 사내 도구 여부에 대한 결정이 어디에도 없다. 또한 이 벤치마크가 비교하는 Sourcegraph/CodeQL/Joern은 모두 수년간의 커뮤니티·프로덕션 검증을 등에 업고 있는 반면 ContextSource는 단일 작성자의 0일차 프로젝트라는 사실을 이 문서가 명시해야 균형 잡힌 비교가 된다.
+
+- 라이선스/배포 모델을 결정하고 LICENSE 파일을 추가한다.
+- "우리는 0일차 프로젝트다"라는 전제를 결론(§7) 근처에 명시한다.
+
+### 5.20 P2 — 접근성 검증
+
+Web UI(React+Cytoscape.js)에서 키보드 내비게이션, 스크린리더, 색맹 대응을 공식적으로 검증한 적이 없다. static/inferred 구분은 색상(녹색/황색)과 선 스타일(실선/점선)을 병용해 색각 이상자에 대한 위험은 낮지만, 정식 검증은 아니다.
+
+- 기본적인 키보드 접근성과 색 대비를 점검한다(UX 감사에서 본문 텍스트 색상 대비 자체는 WCAG AA 기준(4.5:1) 미달 사례가 발견되지 않았다 — 정식 접근성 감사는 아직 별도로 필요하다).
+
 ---
 
 ## 6. 권장 MVP 가치 제안
@@ -363,6 +485,8 @@ SCIP가 직접 제공하지 않는 호출 관계와 ContextSource Evidence는 �
 
 Sourcegraph의 검색 규모, Copilot의 AI 범용성, Joern의 분석 깊이를 그대로 따라가기보다는 **로컬 TypeScript 프로젝트의 변경 영향을 근거와 함께 설명하는 공통 Context 계층**에 집중하는 것이 가장 선명한 차별화 전략이다.
 
+> **2026-08-11 주석 — 권장 순서와 실제 실행의 괴리**: 실제로는 MVP(1~5에 해당하는 Phase 1) 완료 직후 6·7이 아니라 ROADMAP.md Phase 2 "Project Knowledge Base"(Project Entity·기술 스택 관리·유사 프로젝트 탐색)에 먼저 착수했다 — 이 문서의 P0 항목인 5.1(영향 분석 의미 정의)~5.4(품질 측정 체계)는 여전히 미착수 상태다(IMPLEMENTATION_REPORT.md §12~14 참고). 이는 사용자가 명시적으로 Phase 2를 지시했기 때문이며 그 자체로 잘못된 선택은 아니지만, 이 벤치마크 문서가 제안한 우선순위가 실제 의사결정에 그대로 반영되지는 않았다는 사실은 솔직하게 기록해야 한다 — 벤치마크 문서의 실효성을 스스로 점검하는 차원에서 남긴다.
+
 ---
 
 ## 7. 결론
@@ -374,3 +498,14 @@ ContextSource의 핵심 경쟁력은 그래프 자체가 아니라 다음 세 �
 3. 동일한 결과를 AI가 제한된 Context로 조회할 수 있게 한다.
 
 MVP는 범용 코드 인텔리전스 플랫폼보다 **Evidence 기반 TypeScript 변경 영향 탐색기**로 시작하고, 검증된 관계 모델 위에 Project Knowledge Base와 Vector Context를 확장하는 것이 적절하다.
+
+**0일차 프로젝트라는 전제 (2026-08-11 추가)**: 이 문서가 비교하는 Sourcegraph/CodeQL/Joern/Backstage는 모두 수년간의 커뮤니티·프로덕션 검증을 거친 제품이다. ContextSource는 단일 작성자가 만든, 아직 외부 사용자도 커뮤니티도 없는 0일차 프로젝트다. 이 문서의 목적은 "이미 이들과 동등하다"가 아니라 "이들에게서 무엇을 배워 차별화할 것인가"를 정하는 데 있으며, §5의 개선 과제 목록은 그 격차를 좁히기 위한 구체적인 다음 단계다.
+
+---
+
+## 8. 개정 이력
+
+| 날짜 | 버전 | 변경 내용 |
+|------|------|-----------|
+| 2026-08-04 | 0.1 (Draft) | 최초 작성 — Sourcegraph/CodeSee/Copilot/CodeQL/Joern 5개 제품 분석, 개선 과제 5.1~5.8 |
+| 2026-08-11 | 0.2 | Phase 2(Project Entity·기술 스택 관리·유사 프로젝트 탐색) 완료 및 P0 결함 수정 이후, 경쟁 벤치마킹 서브에이전트의 독립 검토를 반영해 개정. 주요 변경: (1) Backstage(내부 개발자 포털) 카테고리 신설(3.6), (2) CodeSee의 단종·GitKraken 인수 사실 반영(3.2), (3) §4 차별화 서술에 Phase 2 반영, (4) 5.4/5.6에 현재 상태 주석 추가, (5) 신규 개선 과제 5.9~5.20 추가(성능 실측·보안·CI·확장성·다중 언어·운영 성숙도·문서 발견성·라이선스·접근성 등), (6) 유사 프로젝트 스코어링 결함을 5.10에 기록하고 해결 완료로 표시, (7) §6에 권장 순서와 실제 실행의 괴리를 주석으로 기록, (8) §7에 "0일차 프로젝트" 전제 명시 |

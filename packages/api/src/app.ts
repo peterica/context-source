@@ -2,6 +2,7 @@ import * as path from 'node:path';
 import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 import {
   addTechStackEntry,
+  computeChangedImpact,
   computeImpact,
   createProject,
   deleteProject,
@@ -367,6 +368,35 @@ export function createApp(ctx: AppContext): Express {
     asyncHandler((req, res) => {
       const project = requireProject(ctx.db, req.params.projectId!);
       res.json({ items: listRuns(ctx.db, project.id, parseLimit(req.query.limit, 20, 200)) });
+    }),
+  );
+
+  // 변경 영향 분석 — Git diff 진입점 — ADR-0008 (BENCHMARK.md 5.2/5.3)
+  projectRouter.get(
+    '/analysis/runs/:id/changed-impact',
+    asyncHandler((req, res) => {
+      const project = requireProject(ctx.db, req.params.projectId!);
+      const run = getRun(ctx.db, req.params.id!);
+      if (!run || run.projectId !== project.id) {
+        throw new ApiError('RUN_NOT_FOUND', `no run with id ${req.params.id}`);
+      }
+      if (!run.baseRevision) {
+        throw new ApiError(
+          'INVALID_PARAM',
+          '이 run은 비교할 이전 revision이 없습니다(첫 전체 분석) — changed-impact는 두 revision을 비교해야 계산할 수 있습니다',
+        );
+      }
+      const result = computeChangedImpact(ctx.db, {
+        projectId: project.id,
+        projectRoot: path.dirname(project.tsconfigPath),
+        baseRevision: run.baseRevision,
+        targetRevision: run.revision,
+        depth: parseDepth(req.query.depth, 3),
+        types: parseTypes(req.query.types),
+        resolution: parseResolution(req.query.resolution),
+        maxCandidates: parseMaxCandidates(req.query.maxCandidates),
+      });
+      res.json({ runId: run.id, ...result });
     }),
   );
 

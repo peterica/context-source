@@ -58,10 +58,14 @@ export {
 } from './query/subgraph.js';
 export {
   computeImpact,
+  computeChangedImpact,
   type ImpactParams,
   type ImpactResult,
   type ImpactCandidate,
   type ImpactPathStep,
+  type ChangedImpactParams,
+  type ChangedImpactResult,
+  type ChangedImpactCandidate,
 } from './query/impact.js';
 export {
   getProjectStats,

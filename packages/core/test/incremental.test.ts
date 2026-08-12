@@ -271,3 +271,74 @@ describe('Incremental analysis preserves relationships into untouched third-part
     fs.rmSync(repoDir, { recursive: true, force: true });
   });
 });
+
+/**
+ * 회귀 테스트: 실제 규모 검증(typeorm, 약 28만 LOC — BENCHMARK.md 5.11)에서 발견된 관계 유실
+ * 버그. c.ts가 바뀌면 b.ts(c.ts의 직접 reverse-importer)는 재분석되어 entity가 delete+reinsert된다.
+ * 이때 a.ts가 b.ts를 호출하지만 c.ts는 전혀 import하지 않는다면, 역방향 조회를 1단계로만 하면
+ * a.ts는 재분석 대상에 잡히지 않는다 — b.ts의 entity가 지워질 때 a→b 관계가 cascade로 삭제되고,
+ * a.ts는 재분석되지 않으므로 그 관계가 다시는 만들어지지 않는다(전수 확인 결과 실제 typeorm에서
+ * 4,552건, 25,761건 중 17.7%가 이 패턴으로 소실됨). findReverseImporters가 전이적 폐포를
+ * 구하도록 고쳐 a.ts까지 재분석 대상에 포함시킴으로써 해결한다.
+ */
+describe('Incremental analysis preserves relationships across a 2-hop reverse-import chain', () => {
+  it('a.ts (imports b.ts, not c.ts) still resolves its call into b.ts after only c.ts changes', () => {
+    const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cs-incremental-2hop-'));
+    git(repoDir, ['init', '-q']);
+    git(repoDir, ['config', 'user.email', 'test@example.com']);
+    git(repoDir, ['config', 'user.name', 'Test']);
+    write(repoDir, 'tsconfig.json', TSCONFIG);
+    write(repoDir, 'src/c.ts', `export function helperC(): number {\n  return 1;\n}\n`);
+    write(
+      repoDir,
+      'src/b.ts',
+      [
+        `import { helperC } from './c';`,
+        `export class B {`,
+        `  method(): number {`,
+        `    return helperC();`,
+        `  }`,
+        `}`,
+        '',
+      ].join('\n'),
+    );
+    write(
+      repoDir,
+      'src/a.ts',
+      [
+        `import { B } from './b';`,
+        `export function run(): number {`,
+        `  return new B().method();`,
+        `}`,
+        '',
+      ].join('\n'),
+    );
+    const revA = commit(repoDir, 'baseline');
+
+    const tsconfigPath = path.join(repoDir, 'tsconfig.json');
+    const db = openDatabase(':memory:');
+    upsertProject(db, { id: PROJECT, name: '2hop', rootPath: repoDir, tsconfigPath });
+    const full = runFullAnalysis({ db, projectId: PROJECT, tsconfigPath, revision: revA });
+    expect(full.failures).toEqual([]);
+
+    // a→B.method 관계가 애초에 있는지부터 확인한다.
+    const runId = symbolEntityId(PROJECT, 'src/a.ts', 'run');
+    const methodId = symbolEntityId(PROJECT, 'src/b.ts', 'B.method');
+    expect(listCallees(db, runId, 50, 0).items.map((i) => i.counterpart.id)).toContain(methodId);
+
+    // c.ts만 바꾼다 — a.ts와 b.ts는 git diff에 없다.
+    write(repoDir, 'src/c.ts', `export function helperC(): number {\n  return 2; /* changed */\n}\n`);
+    commit(repoDir, 'change c.ts only');
+
+    const run = runIncrementalAnalysis({ db, projectId: PROJECT, tsconfigPath });
+    expect(run.failures).toEqual([]);
+
+    // b.ts는 c.ts의 직접 reverse-importer라 재분석되고 entity가 delete+reinsert된다.
+    // a.ts는 b.ts만 import하고 c.ts는 import하지 않으므로, 1단계 역방향 조회로는 재분석
+    // 대상에서 빠진다 — 전이적 폐포로 고치지 않으면 아래 assertion이 실패한다.
+    const calleesAfter = listCallees(db, runId, 50, 0).items.map((i) => i.counterpart.id);
+    expect(calleesAfter).toContain(methodId);
+
+    fs.rmSync(repoDir, { recursive: true, force: true });
+  });
+});

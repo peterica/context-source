@@ -17,7 +17,9 @@ export interface RunIncrementalAnalysisOptions {
 
 /**
  * FR-A6 — Git diff 기반 증분 재분석.
- * 재분석 대상 F = 변경된 파일(추가+수정+rename 신규 경로) ∪ 그 파일들을 IMPORTS 하는 파일(역방향 1단계)
+ * 재분석 대상 F = 변경된 파일(추가+수정+rename 신규 경로) ∪ 그 파일들을 IMPORTS 하는 파일의
+ *              전이적 폐포(reverse-import transitive closure, findReverseImporters 참고 —
+ *              1단계만으로는 실제 규모에서 관계 유실이 재현됨, BENCHMARK.md 5.11)
  *              ∪ 직전 run에서 실패했던 파일(diff 포함 여부 무관, DATA-MODEL §3.2).
  */
 export function runIncrementalAnalysis(options: RunIncrementalAnalysisOptions): AnalysisRun {

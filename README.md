@@ -10,6 +10,8 @@ ContextSource는 소스 코드를 **Entity, Relationship, Evidence**로 변환�
 
 코드를 파일이나 디렉터리 단위가 아니라 **관계(Graph)** 중심으로 이해하는 것이 핵심이다.
 
+여러 프로젝트를 등록·검색하고 기술 스택으로 유사 프로젝트를 찾는 가벼운 카탈로그 기능도 있지만([ADR-0004](./docs/adr/0004-project-entity.md)~[0006](./docs/adr/0006-similar-project-discovery.md)), 이는 Backstage 같은 서비스 카탈로그 제품을 대체하려는 것이 아니라 코드 관계 그래프에 자연스럽게 얹힌 보조 기능이다 — `catalog-info.yaml` 같은 별도 등록 없이 `package.json`을 자동 감지하고, 카탈로그 메타데이터가 관계 그래프와 같은 저장소·조회 계층을 공유한다는 점이 다르다([ADR-0009](./docs/adr/0009-catalog-positioning.md)).
+
 ---
 
 ## 핵심 가치

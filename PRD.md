@@ -2,7 +2,7 @@
 
 - **문서 버전**: 0.1 (Draft)
 - **작성일**: 2026-08-01
-- **상태**: MVP(Phase 1, M1~M5) 구현 완료 — FR별 구현 상태와 알려진 제한사항은 [IMPLEMENTATION_REPORT.md](./IMPLEMENTATION_REPORT.md) 참고. Phase 2 착수: Project Entity는 [ADR-0004](./docs/adr/0004-project-entity.md)로 이 PRD의 범위(단일 프로젝트) 밖에서 별도 확장됨 — 이 문서의 MVP 범위 자체는 변경되지 않았다.
+- **상태**: MVP(Phase 1, M1~M5) 구현 완료 — FR별 구현 상태와 알려진 제한사항은 [IMPLEMENTATION_REPORT.md](./IMPLEMENTATION_REPORT.md) 참고. Phase 2 착수: Project Entity는 [ADR-0004](./docs/adr/0004-project-entity.md)로 이 PRD의 범위(단일 프로젝트) 밖에서 별도 확장됨 — 이 문서의 MVP 범위 자체는 변경되지 않았다. Phase 2가 더한 "여러 프로젝트 등록/검색" 성격이 Backstage류 서비스 카탈로그와 겹치는 것에 대한 포지셔닝 결정은 [ADR-0009](./docs/adr/0009-catalog-positioning.md) 참고 — 카탈로그는 이 PRD가 정의하는 코드 관계 분석기의 보조 기능이며, 이 문서의 "1.1 제품 정의"를 대체하지 않는다.
 - **관련 문서**: [INIT.md](./INIT.md)
 
 ---

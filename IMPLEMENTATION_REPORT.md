@@ -236,8 +236,8 @@ $ make test
 
 ## 9. 완료하지 못한 항목
 
-- **NFR-2/3/4의 수치 벤치마크**: "증분 분석이 전체 대비 5% 이하 시간", "10만 LOC 수 분 이내", "Query p95 1초 이내"를 대규모 실제 코드베이스로 측정하지 않았다. 골든 fixture와 `samples/demo-project`(파일 7개 규모)에서는 모든 동작이 즉시(수 ms~수백 ms) 완료됨을 확인했지만, 이는 PRD가 요구하는 규모의 정량 검증이 아니다.
-- **`static` false positive 0% / recall 95%의 정량 측정**: 골든 fixture 9종에서는 명시적 assertion으로 0 false positive를 확인했지만, PRD 성공 지표가 요구하는 "샘플 코드베이스 수작업 검증" 규모의 recall 측정은 수행하지 않았다.
+- ~~**NFR-2/3/4의 수치 벤치마크**: "증분 분석이 전체 대비 5% 이하 시간", "10만 LOC 수 분 이내", "Query p95 1초 이내"를 대규모 실제 코드베이스로 측정하지 않았다.~~ **2026-08-12 완료** — typeorm(약 28만 LOC)으로 실측. 상세는 [§15](#15-부록--실제-규모-검증-2026-08-12) 참고. 실측 과정에서 실제 P0 결함 2건을 발견(1건 수정 완료, 1건 미해결로 기록).
+- ~~**`static` false positive 0% / recall 95%의 정량 측정**: 골든 fixture 9종에서는 명시적 assertion으로 0 false positive를 확인했지만, PRD 성공 지표가 요구하는 "샘플 코드베이스 수작업 검증" 규모의 recall 측정은 수행하지 않았다.~~ **2026-08-12 소규모 실측 완료** — 실제 소스 수작업 표본(4건)에서 recall 100%, false positive 0. 95% 기준의 대규모 정량 recall(전수/샘플링 검증)은 여전히 별도 골든셋이 필요해 근사치로 남아있다.
 - **Web UI 자동화 컴포넌트 테스트**: M4 Gate(claude-do.md)가 요구하는 것은 "production build + 브라우저 smoke test"이며 둘 다 통과했다. 다만 Vitest+React Testing Library 같은 컴포넌트 단위 테스트는 작성하지 않았다.
 - ~~**CI 파이프라인**: GitHub Actions 등 자동화된 CI는 구성하지 않았다(claude-do.md에서 명시적으로 요구하지 않음).~~ **2026-08-11 완료** — `.github/workflows/ci.yml`에서 push/PR마다 `build → typecheck → lint → test`를 자동 실행한다(BENCHMARK.md 5.13).
 
@@ -257,7 +257,7 @@ $ make test
 
 ## 11. 다음 단계 권고
 
-1. `samples/demo-project`보다 훨씬 큰(실제 오픈소스 규모) TypeScript 프로젝트로 NFR-2/3/4와 recall 95% 성공 지표를 실측하고, 필요하면 인덱스·쿼리를 튜닝한다.
+1. ~~`samples/demo-project`보다 훨씬 큰(실제 오픈소스 규모) TypeScript 프로젝트로 NFR-2/3/4와 recall 95% 성공 지표를 실측하고, 필요하면 인덱스·쿼리를 튜닝한다.~~ **2026-08-12 완료** ([§15](#15-부록--실제-규모-검증-2026-08-12)). 단, 실측 중 발견한 증분 분석의 관계 유실 결함(같은 절) 수정은 여전히 다음 단계 과제로 남아있다 — 설계 논의가 필요한 규모라 이번엔 재현·근본원인 규명까지만 했다.
 2. BENCHMARK.md P0 제안 중 "변경 영향 분석의 의미 정의"(구조적 영향 후보 vs 단정적 예측 구분)와 "Path 조회"는 이번 MVP에서 의도적으로 제외했다 — PRD에 반영되면 다음 단계로 고려한다.
 3. Web 번들 code splitting(특히 Cytoscape.js 지연 로딩) 적용.
 4. ~~GitHub Actions 등으로 `make typecheck && make lint && make test`를 PR마다 자동 실행하는 CI 구성.~~ **2026-08-11 완료.**
@@ -329,3 +329,27 @@ Project Entity 다음으로 ROADMAP.md Phase 2의 "기술 스택 관리"를 구�
 **의도적으로 하지 않은 것** (ADR-0006에 명시): 코드 임베딩/벡터 인덱스(Phase 3 범위), Project를 그래프 순회 가능한 노드로 만드는 것, 기술 스택 외 요인(코드 규모, 아키텍처 패턴 등)을 유사도에 반영하는 것.
 
 이로써 ROADMAP.md Phase 2 "Project Knowledge Base"의 모든 항목(Project Entity, 기술 스택 관리, 프로젝트 검색, 유사 프로젝트 탐색, 프로젝트 간 관계 분석)이 구현 완료되었다. Phase 3/4는 별도 승인 전까지 보류한다.
+
+---
+
+## 15. 부록 — 실제 규모 검증 (2026-08-12)
+
+Phase 2 완결과 벤치마크 P0/P1/P2 항목 정리 이후, 사용자가 "실제 규모 검증"과 "핵심 영향 분석 기능 구현" 중 하나를 선택해 실제 규모 검증을 먼저 진행하기로 했다(BENCHMARK.md 5.11 — PRD 성공 지표를 실제로 측정한 적이 없다는 지적).
+
+**대상**: [typeorm/typeorm](https://github.com/typeorm/typeorm) `df07bf1`. 자체 `tsconfig.json`의 `include`(`src`, `test`, `*.ts`) 기준 3,245 파일, 약 285,676 LOC — PRD가 목표로 삼은 "약 10만 LOC"의 약 2.85배 규모. 모노레포가 아닌 단일 `tsconfig.json` 구조라 프로젝트 등록 모델(경로+tsconfigPath 하나)과 그대로 맞았다. `tsconfig.json`이 npm 패키지 `@tsconfig/node20`을 `extends`했는데, 이 저장소는 `pnpm`을 강제해 `npm install`이 `EBADDEVENGINES`로 거부되어 별도 스크래치 디렉터리에서 그 한 패키지만 받아 `node_modules`에 배치하는 방식으로 우회했다(전체 의존성 설치 불필요 — 정적 분석 자체는 `node_modules` 없이도 동작함을 확인).
+
+**측정 결과** (표는 BENCHMARK.md 5.11에도 동일하게 기록):
+
+- **NFR-3 (초기 인덱싱)**: 2.85배 규모를 3.7~4.1초에 완료 — "수 분 이내" 목표에 여유가 크다.
+- **NFR-4 (Query 응답성)**: entity 상세 25ms, callers/callees 6~7ms, 검색 10ms, subgraph(depth2, 200노드) 28ms, **subgraph(depth3, both, 1000노드 — 의도적 최악 케이스) 71ms**, stats 91ms. 1초 목표 대비 최악 케이스도 14배 여유.
+- **NFR-5 (정확성)**: 전체 관계 25,761건 중 100% `static`, 0% `inferred` — interface 경유 호출을 아예 생성하지 않는 기존 보수적 설계(§10 알려진 제한사항)와 일치한다. 실제 소스에서 수작업으로 고른 호출 4건(`Repository→EntityManager` 3건, `EntityManager→DataSource` 1건) 전부 정확히 캡처됨을 확인 — 소규모 표본이라 PRD의 95% 정량 기준을 대체하지는 않는다.
+- **NFR-2 (증분 성능)**: 파일 15개(0.5%) 변경 후 서버 측 2.4초 — 전체 스캔 대비 약 40% 단축. "초 단위"는 달성하지만 "유의미하게 빠름"이라 하기엔 약하다. Phase A가 변경 규모와 무관하게 매번 프로젝트 전체를 훑는 구조라, 파일 수가 늘어날수록 상대적 절감폭이 줄어드는 구조적 한계로 보인다.
+
+**실제 규모에서만 드러난 결함 2건** (7파일짜리 데모 프로젝트·골든 fixture로는 전혀 발견되지 않았던 것들):
+
+1. **크래시 버그, 수정 완료.** 전체 분석이 `UNIQUE constraint failed: entity.id`로 중간에 죽었다. 원인: `containerNames + name`만으로 symbolPath를 만드는데, (a) 같은 클래스의 동명 instance/static 메서드(`BaseEntity.hasId` 인스턴스 메서드와 `static hasId`), (b) 같은 파일의 동명 interface+class(`typings.ts`의 `TypedEventEmitter`), (c) 같은 부모 함수 안 서로 다른 형제 블록(if/else)의 동명 지역 함수(`*QueryRunner.connect` 안의 `onErrorCallback`)가 전부 같은 entity id로 충돌했다. 파일 단위 occurrence counter를 추가해 두 번째 발생부터 `$2`, `$3`... suffix를 붙이는 방식으로 고쳤다 — AST 방문 순서가 같은 소스에 대해 항상 동일하므로 재분석해도 결정적으로 같은 id가 나온다(FR-A4 entity id 안정성 보존, 충돌 없는 절대다수 케이스는 기존 id 형식 그대로 유지). `duplicate-symbol-names` fixture로 3가지 패턴 모두 회귀 테스트화. 수정 후 재분석: 중복 0건, 관계 25,713→25,761건으로 오히려 증가(이전엔 충돌로 가려졌던 심볼의 관계가 이제 정확히 잡힘). 커밋 `6f32246`.
+2. **관계 유실 버그, 미해결로 기록.** 파일 15개만 바꿨는데 전체 관계 25,761건 중 4,552건(17.7%)이 사라졌다 — 그것도 전부 **바꾸지 않은** 파일들 사이의 관계였다. 근본 원인을 정확히 특정했다: 변경된 파일의 역방향 importer(예: `DataSource.ts`, 여러 변경 파일을 import하고 있어 재분석 대상에 포함됨)는 재분석되며 그 entity가 delete 후 reinsert된다. 이때 그 entity를 **호출하지만 자신은 재분석 대상이 아닌** 파일(예: `EntityManager.ts`가 `DataSource.createQueryRunner()`를 호출)의 관계는 (1) target entity가 지워질 때 FK cascade로 함께 삭제되고, (2) `analyzeProject({ onlyFiles })`는 재분석 대상 파일을 **source**로 하는 관계만 재생성하므로 다시는 복구되지 않는다. 사라진 4,552건을 전수 대조한 결과 **100%가 이 패턴**과 일치했다(직접 변경한 15개 파일이 target인 경우는 0건). ADR-0003이 고친 것은 "역방향 참조를 **해석**하는 능력"(Phase A 전체 파일 심볼맵)이었지, "대상 entity가 지워질 때 그걸 가리키던 관계를 누가 다시 만드는가"는 아니었다 — 이번에 드러난 것은 후자다. 근본 수정에는 설계 결정이 필요하다(예: 재분석 대상에 target-side 역참조자까지 재귀적으로 포함하되 그 비용이 "증분"의 의미를 해치지 않는 범위인지 검토, 또는 entity id가 안 바뀌면 relationship을 cascade 삭제하지 않는 전략 검토) — 이번 세션에서는 재현·근본원인 규명까지 하고 실제 수정은 다음 단계로 남겼다.
+
+**재현 방법** (다음에 수정할 사람을 위해): typeorm 같은 대형 프로젝트를 등록 → 전체 분석 → git으로 관리되는 여러(10개 이상) 파일에 사소한 변경(빈 줄 추가 등)을 만들어 커밋 → 증분 분석 실행 → `GET /projects/{id}/stats`의 `relationships.total`이 전체 분석 때보다 줄어드는지 확인. 안전을 위해 스크래치 클론에서 진행했다(원본 typeorm 저장소나 이 저장소 자체에는 어떤 변경도 하지 않았다).
+
+**의도적으로 하지 않은 것**: 관계 유실 버그의 실제 수정(설계 논의 필요), PRD 95% recall 기준의 대규모 정량 검증(전수/샘플링 골든셋 구축은 별도 과제), 두 번째 오픈소스 프로젝트로의 교차 검증.

@@ -403,12 +403,25 @@ SCIP가 직접 제공하지 않는 호출 관계와 ContextSource Evidence는 �
 
 **2026-08-11 수정 완료**: `findSimilarProjects`의 교집합 계산에서 `language`/`runtime` 카테고리를 제외하도록 수정했다(ADR-0006 수정 이력 참고, 회귀 테스트 포함). 이 항목은 벤치마크 문서의 개선 과제가 아니라 실제 코드 수정으로 이미 닫혔다 — 기록으로만 남긴다.
 
-### 5.11 P0 — 성능·정확도 실측 (NFR-2/3/4, recall 95%)
+### 5.11 P0 — [실측 완료, 실측 중 새 P0 결함 발견] 성능·정확도 실측 (NFR-2/3/4, recall 95%)
 
-PRD 9장의 성공 지표(`static` false positive 0%, recall 95%, 증분 처리 5% 이하, 10만 LOC 수 분 이내, p95 조회 1초 이내)는 IMPLEMENTATION_REPORT.md §9에서 스스로 "측정하지 않았다"고 인정한다. 현재까지의 검증은 골든 fixture 9종 + 7파일짜리 데모 프로젝트가 전부다. Sourcegraph/CodeQL처럼 실제 초대형 코드베이스에서 검증된 제품과 비교하면, ContextSource의 핵심 주장(NFR-5 정확성 우선)이 무검증 상태로 남아 있다는 점을 이 문서가 감추지 않고 명시해야 한다.
+PRD 9장의 성공 지표(`static` false positive 0%, recall 95%, 증분 처리 5% 이하, 10만 LOC 수 분 이내, p95 조회 1초 이내)는 IMPLEMENTATION_REPORT.md §9에서 스스로 "측정하지 않았다"고 인정했다. 현재까지의 검증은 골든 fixture 9종 + 7파일짜리 데모 프로젝트가 전부였다.
 
-- 중형~대형 오픈소스 TypeScript 프로젝트(예: 10만 LOC 이상) 하나 이상으로 실측한다.
-- 측정 결과를 이 문서 또는 별도 벤치마크 리포트에 수치로 남긴다 — "측정 예정"이 아니라 "측정함 → 수치"로 문서를 갱신한다.
+**2026-08-12 실측 수행**: [typeorm](https://github.com/typeorm/typeorm)(`df07bf1`, tsconfig의 `include` 기준 src+test 3,245 파일·약 285,676 LOC — PRD 목표 10만 LOC의 약 2.85배 규모)를 실제로 등록·분석했다.
+
+| 지표 | 목표 (PRD) | 실측 | 판정 |
+|------|-----------|------|------|
+| NFR-3 초기 인덱싱 | 약 10만 LOC, 수 분 이내 | **약 285,676 LOC(2.85배 규모)를 3.7~4.1초** | ✅ 여유 큼 (목표 규모라면 수십~수백 배 여유) |
+| NFR-4 Query 응답성 | 서브그래프 Query 1초 이내 | entity 상세 25ms · callers/callees 6~7ms · 검색 10ms · subgraph(depth2,200노드) 28ms · **subgraph(depth3,both,1000노드, 최악 케이스) 71ms** · stats 91ms | ✅ 최악 케이스도 1초의 ~14배 여유 |
+| NFR-5 recall/정확도 | static false positive 0%, recall 95%+ | 전체 25,761개 관계 중 **100% `static`, 0% `inferred`**(interface 경유 호출은 관계 자체를 생성하지 않는 기존 보수적 설계와 일치). 실제 소스에서 수작업으로 뽑은 호출 4건(`Repository→EntityManager` 3건, `EntityManager→DataSource` 1건) 전부 정확히 캡처 확인 | 소규모 수작업 표본에서는 recall 100%, false positive 0 — 대규모 정량 recall(95% 기준의 전수/샘플링 검증)은 별도 골든셋 없이는 여전히 근사치 |
+| NFR-2 증분 성능 | 전체 대비 유의미하게 빠름, 초 단위 | 파일 15개(3,244개 중 0.5%) 변경 → **서버 측 2.4초** (전체 스캔 3.7~4.1초 대비 약 40% 단축) | ⚠️ "초 단위"는 달성하지만 "유의미하게 빠름"은 약함 — Phase A가 매번 전체 파일을 훑는 구조라 큰 프로젝트일수록 절감폭이 줄어듦(신규 개선 과제로 별도 기록 필요, 이번 세션 범위 밖) |
+
+**실측 중 발견한 실제 결함 2건** (7파일짜리 데모 프로젝트로는 전혀 드러나지 않았던, 실제 규모에서만 나타나는 버그):
+
+1. **[P0, 수정 완료]** 전체 분석이 `UNIQUE constraint failed: entity.id`로 크래시 — `containerNames+name`만으로 symbolPath를 만들어 (a) 같은 이름의 instance/static 메서드(`BaseEntity.hasId` 등), (b) 같은 파일의 동명 interface+class, (c) 형제 블록의 동명 지역 함수가 서로 다른 선언인데도 같은 entity id로 충돌했다. 파일 단위 occurrence counter로 두 번째부터 `$2`, `$3`... suffix를 붙여 해결(재분석 시에도 결정적으로 동일 id 유지, FR-A4 보존). 회귀 테스트 fixture(`duplicate-symbol-names`) 추가. 커밋 `6f32246`.
+2. **[P0, 미해결]** **증분 분석이 실제로 관계를 조용히 잃어버린다.** 15개 파일만 바꿨는데 전체 관계 25,761건 중 **4,552건(17.7%)이 사라졌다** — 삭제 대상 파일이 아니었는데도. 원인을 정확히 특정: 변경분의 역방향 importer(예: `DataSource.ts`)는 재분석 대상에 포함되어 entity가 delete+reinsert되는데, 그 entity를 **호출은 하지만 자신은 재분석 대상이 아닌** 파일(예: `EntityManager.ts`가 `DataSource.createQueryRunner()`를 호출)의 관계는 (1) target entity가 지워지며 cascade로 함께 삭제되고 (2) `analyzeProject({ onlyFiles })`가 재분석 대상 파일을 **source**로 하는 관계만 재생성하므로 영원히 복구되지 않는다. 사라진 4,552건을 전수 분석한 결과 **100%가 이 패턴**(직접 변경한 15개 파일이 target인 경우는 0건, 전부 역방향 importer가 target인 경우)과 일치해 우연이 아니라 결정적 재현임을 확인했다. ADR-0003이 고친 것은 "역방향 참조 **해석**"(Phase A 전체 파일 심볼맵)이었지, "역방향 참조 **보존**"(대상 entity가 지워질 때 그걸 가리키던 관계를 누가 다시 만드는가)이 아니었다 — 이번 실측에서 드러난 것은 후자다. 근본적인 수정(예: 재분석 대상에 target-side 역참조자까지 재귀적으로 포함하거나, entity id가 그대로면 relationship을 cascade 삭제하지 않는 전략)은 설계 논의가 필요해 이번 벤치마크 세션에서는 재현·근본원인 규명까지만 하고 수정은 보류했다.
+
+재현 방법: typeorm을 등록해 전체 분석 → 임의의 파일 15개에 한 줄씩 추가하고 git commit → 증분 분석 실행 → 관계 총량이 25,761 → 21,209로 감소하는 것을 확인.
 
 ### 5.12 P0 — 보안/인증 로드맵 명문화
 

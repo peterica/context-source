@@ -57,6 +57,13 @@ export {
   type SubgraphDirection,
 } from './query/subgraph.js';
 export {
+  computeImpact,
+  type ImpactParams,
+  type ImpactResult,
+  type ImpactCandidate,
+  type ImpactPathStep,
+} from './query/impact.js';
+export {
   getProjectStats,
   listInferredRelationships,
   type ProjectStats,

@@ -249,6 +249,21 @@ describe('callback and higher-order function', () => {
     expect(rel).toBeUndefined();
   });
 
+  it('records that call as an unresolved reference (ambiguous-callable-type, ADR-0011)', () => {
+    const registerHandler = symbolEntityId(PROJECT, 'src/handlers.ts', 'registerHandler');
+    const unresolved = result.unresolvedReferences.filter((u) => u.sourceId === registerHandler);
+    expect(unresolved).toHaveLength(1);
+    expect(unresolved[0]?.kind).toBe('CALLS');
+    expect(unresolved[0]?.reason).toBe('ambiguous-callable-type');
+    expect(unresolved[0]?.snippet).toBe('handler()');
+  });
+
+  it('does NOT record an unresolved reference for console.log (external/ambient, OQ-11 boundary)', () => {
+    const onClick = symbolEntityId(PROJECT, 'src/handlers.ts', 'onClick');
+    const unresolved = result.unresolvedReferences.filter((u) => u.sourceId === onClick);
+    expect(unresolved).toEqual([]);
+  });
+
   it('creates an inferred CALLS relationship when a known function is called through a direct local alias', () => {
     const invoke = symbolEntityId(PROJECT, 'src/handlers.ts', 'invoke');
     const greet = symbolEntityId(PROJECT, 'src/handlers.ts', 'greet');
@@ -311,6 +326,20 @@ describe('dependency injection (constructor-injected interface)', () => {
     const loggerLog = result.relationships.filter((r) => r.type === 'CALLS' && r.sourceId === placeOrder);
     expect(loggerLog).toEqual([]);
   });
+
+  it('records that call as an unresolved reference (entity-not-extracted, ADR-0011) — turns the known limitation above into a measured, CI-enforced fact', () => {
+    const placeOrder = symbolEntityId(PROJECT, 'src/order-service.ts', 'OrderService.placeOrder');
+    const unresolved = result.unresolvedReferences.filter((u) => u.sourceId === placeOrder);
+    expect(unresolved).toHaveLength(1);
+    expect(unresolved[0]?.kind).toBe('CALLS');
+    expect(unresolved[0]?.reason).toBe('entity-not-extracted');
+  });
+
+  it('does NOT record an unresolved reference for console.log inside ConsoleLogger.log (external/ambient, OQ-11 boundary)', () => {
+    const consoleLoggerLog = symbolEntityId(PROJECT, 'src/console-logger.ts', 'ConsoleLogger.log');
+    const unresolved = result.unresolvedReferences.filter((u) => u.sourceId === consoleLoggerLog);
+    expect(unresolved).toEqual([]);
+  });
 });
 
 describe('dynamic import and unresolvable calls', () => {
@@ -340,6 +369,45 @@ describe('dynamic import and unresolvable calls', () => {
       (r) => r.type === 'IMPORTS' && r.sourceId === loader,
     );
     expect(importsFromLoader).toHaveLength(1); // lazy.ts로의 관계 1건뿐
+  });
+
+  it('records the computed specifier as an unresolved reference (unresolvable-specifier, ADR-0011)', () => {
+    const loader = fileEntityId(PROJECT, 'src/loader.ts');
+    const unresolved = result.unresolvedReferences.filter((u) => u.sourceId === loader);
+    expect(unresolved).toHaveLength(1);
+    expect(unresolved[0]?.kind).toBe('IMPORTS');
+    expect(unresolved[0]?.reason).toBe('unresolvable-specifier');
+    expect(unresolved[0]?.snippet).toBe('import(pathVar)');
+  });
+});
+
+describe('unresolved imports (ADR-0011)', () => {
+  const result = analyzeProject({
+    tsconfigPath: fixtureTsconfig('unresolved-imports'),
+    projectId: PROJECT,
+    revision: REV,
+  });
+
+  it('has no failures (a missing module is a semantic diagnostic, not a syntactic one)', () => {
+    expect(result.failures).toEqual([]);
+  });
+
+  it('a broken relative specifier produces no IMPORTS relationship, recorded as unresolvable-specifier', () => {
+    const brokenImport = fileEntityId(PROJECT, 'src/broken-import.ts');
+    const rel = result.relationships.filter((r) => r.type === 'IMPORTS' && r.sourceId === brokenImport);
+    expect(rel).toEqual([]);
+    const unresolved = result.unresolvedReferences.filter((u) => u.sourceId === brokenImport);
+    expect(unresolved).toHaveLength(1);
+    expect(unresolved[0]?.reason).toBe('unresolvable-specifier');
+  });
+
+  it('a real file outside tsconfig include produces no IMPORTS relationship, recorded as internal-path-not-in-project', () => {
+    const outsideImport = fileEntityId(PROJECT, 'src/outside-import.ts');
+    const rel = result.relationships.filter((r) => r.type === 'IMPORTS' && r.sourceId === outsideImport);
+    expect(rel).toEqual([]);
+    const unresolved = result.unresolvedReferences.filter((u) => u.sourceId === outsideImport);
+    expect(unresolved).toHaveLength(1);
+    expect(unresolved[0]?.reason).toBe('internal-path-not-in-project');
   });
 });
 

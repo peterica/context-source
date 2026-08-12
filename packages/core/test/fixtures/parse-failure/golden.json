@@ -48,6 +48,7 @@
       ]
     }
   ],
+  "unresolvedReferences": [],
   "failures": [
     {
       "filePath": "src/bad.ts",

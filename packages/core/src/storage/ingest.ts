@@ -1,5 +1,5 @@
 import type { Db } from './db.js';
-import type { Entity, Relationship } from '../types.js';
+import type { Entity, Relationship, UnresolvedReference } from '../types.js';
 
 /**
  * project_id + file_path 기준으로 Entity를 삭제한다.
@@ -87,6 +87,36 @@ export function insertRelationshipsWithEvidence(db: Db, relationships: Relations
   }
 }
 
+/**
+ * ADR-0011 — Relationship이 아니므로 evidence/deferred FK 절차가 필요 없다. source_id가
+ * entity(id) ON DELETE CASCADE를 참조해 relationship/evidence와 같은 방식으로 증분 삭제 시
+ * 자동 정리된다(DATA-MODEL.md §3.2).
+ */
+export function insertUnresolvedReferences(db: Db, refs: UnresolvedReference[]): void {
+  const stmt = db.prepare(
+    `INSERT INTO unresolved_reference
+       (id, project_id, source_id, kind, reason, file_path, start_line, start_col, end_line, end_col, snippet, analyzer, revision)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+  for (const ref of refs) {
+    stmt.run(
+      ref.id,
+      ref.projectId,
+      ref.sourceId,
+      ref.kind,
+      ref.reason,
+      ref.filePath,
+      ref.range.startLine,
+      ref.range.startCol,
+      ref.range.endLine,
+      ref.range.endCol,
+      ref.snippet,
+      ref.analyzer,
+      ref.revision,
+    );
+  }
+}
+
 export function runInTransaction<T>(db: Db, fn: () => T): T {
   db.exec('BEGIN');
   try {
@@ -108,6 +138,7 @@ export function replaceProjectGraph(
   projectId: string,
   entities: Entity[],
   relationships: Relationship[],
+  unresolvedReferences: UnresolvedReference[] = [],
 ): void {
   runInTransaction(db, () => {
     db.prepare('DELETE FROM entity WHERE project_id = ?').run(projectId);
@@ -116,5 +147,6 @@ export function replaceProjectGraph(
     insertEntities(db, nonExternal);
     upsertExternalModuleEntities(db, external);
     insertRelationshipsWithEvidence(db, relationships);
+    insertUnresolvedReferences(db, unresolvedReferences);
   });
 }

@@ -134,7 +134,7 @@ export function analyzeProject(options: AnalyzeProjectOptions): AnalysisResult {
   const entitiesById = new Map(allEntities.map((e) => [e.id, e]));
   const externalModules = new Map<string, Entity>();
 
-  const relationshipOccurrences = resolvePendingTasks(pending, {
+  const { relationships: relationshipOccurrences, unresolvedReferences } = resolvePendingTasks(pending, {
     projectId: options.projectId,
     revision: options.revision,
     projectRoot,
@@ -154,5 +154,5 @@ export function analyzeProject(options: AnalyzeProjectOptions): AnalysisResult {
   const entities = [...inScopeEntities, ...externalModules.values()];
   const relationships = mergeOccurrences([...declareOccurrences, ...relationshipOccurrences]);
 
-  return { entities, relationships, failures, analyzedFilePaths };
+  return { entities, relationships, unresolvedReferences, failures, analyzedFilePaths };
 }

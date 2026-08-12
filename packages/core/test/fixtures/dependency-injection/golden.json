@@ -435,5 +435,23 @@
       ]
     }
   ],
+  "unresolvedReferences": [
+    {
+      "id": "u-48292cf2afe9",
+      "sourceId": "p1/sym:src/order-service.ts#OrderService.placeOrder",
+      "kind": "CALLS",
+      "reason": "entity-not-extracted",
+      "filePath": "src/order-service.ts",
+      "range": {
+        "startLine": 7,
+        "startCol": 5,
+        "endLine": 7,
+        "endCol": 36
+      },
+      "snippet": "this.logger.log('order placed')",
+      "analyzer": "ts-analyzer@0.1.0",
+      "revision": "rev1"
+    }
+  ],
   "failures": []
 }

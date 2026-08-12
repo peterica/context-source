@@ -1,4 +1,14 @@
-import type { Entity, EntityKind, Evidence, Relationship, RelationshipType, Resolution } from '../types.js';
+import type {
+  Entity,
+  EntityKind,
+  Evidence,
+  Relationship,
+  RelationshipType,
+  Resolution,
+  UnresolvedReference,
+  UnresolvedReferenceKind,
+  UnresolvedReferenceReason,
+} from '../types.js';
 
 export interface EntityRow {
   id: string;
@@ -74,5 +84,41 @@ export function rowToRelationship(row: RelationshipRow, evidence: Evidence[]): R
     resolution: row.resolution as Resolution,
     confidence: row.confidence,
     evidence,
+  };
+}
+
+export interface UnresolvedReferenceRow {
+  id: string;
+  project_id: string;
+  source_id: string;
+  kind: string;
+  reason: string;
+  file_path: string;
+  start_line: number;
+  start_col: number;
+  end_line: number;
+  end_col: number;
+  snippet: string;
+  analyzer: string;
+  revision: string;
+}
+
+export function rowToUnresolvedReference(row: UnresolvedReferenceRow): UnresolvedReference {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    sourceId: row.source_id,
+    kind: row.kind as UnresolvedReferenceKind,
+    reason: row.reason as UnresolvedReferenceReason,
+    filePath: row.file_path,
+    range: {
+      startLine: row.start_line,
+      startCol: row.start_col,
+      endLine: row.end_line,
+      endCol: row.end_col,
+    },
+    snippet: row.snippet,
+    analyzer: row.analyzer,
+    revision: row.revision,
   };
 }

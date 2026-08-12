@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, type ProjectStats } from '../api/client.js';
 import { formatRevision, ENTITY_KIND_LABEL } from '../format.js';
 import { RESOLUTION_TOOLTIP } from '../glossary.js';
+import type { UnresolvedReferenceKind } from '@contextsource/core';
 import type { AnalysisRun, EntityKind } from '@contextsource/core';
 import { TechStackEditor } from './TechStackEditor.js';
 import { SimilarProjects } from './SimilarProjects.js';
@@ -69,6 +70,13 @@ export function Overview(props: {
           <div className="n">{stats.relationships.byResolution.inferred}</div>
           <div className="l">Inferred</div>
         </div>
+        <div
+          className="stat-tile"
+          title="발견했지만 대상을 확정 못한 참조 개수입니다 — 이 그래프가 완전하지 않을 수 있다는 신호입니다(ADR-0011)."
+        >
+          <div className="n">{stats.unresolvedReferences.total}</div>
+          <div className="l">Unresolved</div>
+        </div>
       </div>
 
       <div className="split" style={{ marginBottom: 20 }}>
@@ -97,6 +105,25 @@ export function Overview(props: {
               ))}
             </tbody>
           </table>
+        </div>
+        <div className="panel">
+          <h2 className="section-title">사각지대 종류별</h2>
+          {stats.unresolvedReferences.total === 0 ? (
+            <div className="empty">없음</div>
+          ) : (
+            <table className="list">
+              <tbody>
+                {(Object.entries(stats.unresolvedReferences.byKind) as [UnresolvedReferenceKind, number][])
+                  .filter(([, count]) => count > 0)
+                  .map(([kind, count]) => (
+                    <tr key={kind}>
+                      <td>{kind}</td>
+                      <td style={{ textAlign: 'right' }}>{count}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
@@ -128,9 +155,12 @@ export function Overview(props: {
         )}
       </div>
 
-      <div>
+      <div style={{ display: 'flex', gap: 8 }}>
         <button className="btn secondary" onClick={props.onGoToReview}>
           Inferred 관계 검토하기 ({stats.relationships.byResolution.inferred}건) →
+        </button>
+        <button className="btn secondary" onClick={props.onGoToReview}>
+          사각지대 검토하기 ({stats.unresolvedReferences.total}건) →
         </button>
       </div>
     </div>

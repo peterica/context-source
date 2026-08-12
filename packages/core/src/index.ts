@@ -20,6 +20,7 @@ export {
   insertEntities,
   upsertExternalModuleEntities,
   insertRelationshipsWithEvidence,
+  insertUnresolvedReferences,
   runInTransaction,
 } from './storage/ingest.js';
 export {
@@ -70,9 +71,12 @@ export {
 export {
   getProjectStats,
   listInferredRelationships,
+  listUnresolvedReferences,
   type ProjectStats,
   type InferredRelationshipItem,
   type ListInferredRelationshipsResult,
+  type UnresolvedReferenceItem,
+  type ListUnresolvedReferencesResult,
 } from './query/stats.js';
 export {
   listProjectsWithStats,

@@ -342,3 +342,82 @@ describe('Incremental analysis preserves relationships across a 2-hop reverse-im
     fs.rmSync(repoDir, { recursive: true, force: true });
   });
 });
+
+describe('unresolved_reference persists correctly across incremental analysis (ADR-0011)', () => {
+  function countUnresolved(db: Db, sourceId: string): number {
+    return (
+      db.prepare('SELECT COUNT(*) AS c FROM unresolved_reference WHERE source_id = ?').get(sourceId) as {
+        c: number;
+      }
+    ).c;
+  }
+
+  it('an unrelated file change does not disturb an existing unresolved reference; fixing the call site removes it', () => {
+    const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cs-incremental-unresolved-'));
+    git(repoDir, ['init', '-q']);
+    git(repoDir, ['config', 'user.email', 'test@example.com']);
+    git(repoDir, ['config', 'user.name', 'Test']);
+    write(repoDir, 'tsconfig.json', TSCONFIG);
+    write(repoDir, 'src/logger.ts', `export interface Logger {\n  log(message: string): void;\n}\n`);
+    write(
+      repoDir,
+      'src/service.ts',
+      [
+        `import { Logger } from './logger';`,
+        `export class Service {`,
+        `  constructor(private readonly logger: Logger) {}`,
+        `  run(): void {`,
+        `    this.logger.log('ran');`,
+        `  }`,
+        `}`,
+        '',
+      ].join('\n'),
+    );
+    write(repoDir, 'src/unrelated.ts', `export function unrelated(): number {\n  return 1;\n}\n`);
+    const revA = commit(repoDir, 'baseline');
+
+    const tsconfigPath = path.join(repoDir, 'tsconfig.json');
+    const db = openDatabase(':memory:');
+    upsertProject(db, { id: PROJECT, name: 'unresolved', rootPath: repoDir, tsconfigPath });
+    const full = runFullAnalysis({ db, projectId: PROJECT, tsconfigPath, revision: revA });
+    expect(full.failures).toEqual([]);
+
+    const runMethodId = symbolEntityId(PROJECT, 'src/service.ts', 'Service.run');
+    expect(countUnresolved(db, runMethodId)).toBe(1);
+
+    // unrelated.ts만 바꾼다 — service.ts는 재분석 대상이 아니다.
+    write(repoDir, 'src/unrelated.ts', `export function unrelated(): number {\n  return 2; /* changed */\n}\n`);
+    commit(repoDir, 'change unrelated.ts only');
+    const incr1 = runIncrementalAnalysis({ db, projectId: PROJECT, tsconfigPath });
+    expect(incr1.failures).toEqual([]);
+    expect(countUnresolved(db, runMethodId)).toBe(1); // 그대로 살아있어야 한다 — 삭제되거나 중복되면 안 됨
+
+    // 이번엔 service.ts 자체를 고쳐서 구체 타입을 통해 호출하게 만든다 — 사각지대가 해소돼야 한다.
+    write(
+      repoDir,
+      'src/service.ts',
+      [
+        `import { Logger } from './logger';`,
+        `class ConsoleLogger implements Logger {`,
+        `  log(message: string): void {}`,
+        `}`,
+        `export class Service {`,
+        `  private readonly logger: ConsoleLogger = new ConsoleLogger();`,
+        `  run(): void {`,
+        `    this.logger.log('ran');`,
+        `  }`,
+        `}`,
+        '',
+      ].join('\n'),
+    );
+    commit(repoDir, 'fix service.ts to use a concrete logger type');
+    const incr2 = runIncrementalAnalysis({ db, projectId: PROJECT, tsconfigPath });
+    expect(incr2.failures).toEqual([]);
+    expect(countUnresolved(db, runMethodId)).toBe(0);
+
+    const rel = listCallees(db, runMethodId, 50, 0).items.map((i) => i.counterpart.id);
+    expect(rel).toContain(symbolEntityId(PROJECT, 'src/service.ts', 'ConsoleLogger.log'));
+
+    fs.rmSync(repoDir, { recursive: true, force: true });
+  });
+});

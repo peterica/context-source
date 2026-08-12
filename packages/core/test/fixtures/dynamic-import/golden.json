@@ -150,5 +150,23 @@
       ]
     }
   ],
+  "unresolvedReferences": [
+    {
+      "id": "u-31b1619f9836",
+      "sourceId": "p1/file:src/loader.ts",
+      "kind": "IMPORTS",
+      "reason": "unresolvable-specifier",
+      "filePath": "src/loader.ts",
+      "range": {
+        "startLine": 7,
+        "startCol": 10,
+        "endLine": 7,
+        "endCol": 25
+      },
+      "snippet": "import(pathVar)",
+      "analyzer": "ts-analyzer@0.1.0",
+      "revision": "rev1"
+    }
+  ],
   "failures": []
 }

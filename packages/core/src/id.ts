@@ -49,3 +49,19 @@ export function evidenceId(
 export function analysisRunId(prefix = 'run'): string {
   return `${prefix}-${shortHash(`${Date.now()}|${Math.random()}`)}`;
 }
+
+/**
+ * UnresolvedReference id: evidenceId와 같은 방식 — source + 위치로 결정되어 재분석해도
+ * 같은 사각지대는 같은 id로 수렴한다(ADR-0011, FR-A4와 동일한 안정성 원칙).
+ */
+export function unresolvedReferenceId(
+  sourceId: string,
+  kind: string,
+  filePath: string,
+  startLine: number,
+  startCol: number,
+  endLine: number,
+  endCol: number,
+): string {
+  return `u-${shortHash(`${sourceId}|${kind}|${normalizeFilePath(filePath)}|${startLine}|${startCol}|${endLine}|${endCol}`)}`;
+}

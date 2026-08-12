@@ -23,6 +23,7 @@ import {
   listProjectsWithStats,
   listRuns,
   listTechStack,
+  listUnresolvedReferences,
   mergeTechStack,
   projectExists,
   removeTechStackEntry,
@@ -446,6 +447,22 @@ export function createApp(ctx: AppContext): Express {
       const project = requireProject(ctx.db, req.params.projectId!);
       res.json(
         listInferredRelationships(
+          ctx.db,
+          project.id,
+          parseLimit(req.query.limit),
+          parseOffset(req.query.offset),
+        ),
+      );
+    }),
+  );
+
+  // 사각지대 검토 — ADR-0011 (BENCHMARK.md 5.5)
+  projectRouter.get(
+    '/unresolved-references',
+    asyncHandler((req, res) => {
+      const project = requireProject(ctx.db, req.params.projectId!);
+      res.json(
+        listUnresolvedReferences(
           ctx.db,
           project.id,
           parseLimit(req.query.limit),

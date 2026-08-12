@@ -4,9 +4,10 @@ import { upsertProject } from '../src/storage/project-repo.js';
 import {
   insertEntities,
   insertRelationshipsWithEvidence,
+  insertUnresolvedReferences,
   runInTransaction,
 } from '../src/storage/ingest.js';
-import type { Entity, Relationship } from '../src/types.js';
+import type { Entity, Relationship, UnresolvedReference } from '../src/types.js';
 
 function freshDb() {
   const db = openDatabase(':memory:');
@@ -22,6 +23,21 @@ function fileEntity(id: string, filePath: string): Entity {
     name: filePath,
     filePath,
     range: { startLine: 1, endLine: 10 },
+    revision: 'rev1',
+  };
+}
+
+function unresolvedRef(id: string, sourceId: string): UnresolvedReference {
+  return {
+    id,
+    projectId: 'p1',
+    sourceId,
+    kind: 'CALLS',
+    reason: 'entity-not-extracted',
+    filePath: 'a.ts',
+    range: { startLine: 1, startCol: 1, endLine: 1, endCol: 5 },
+    snippet: 'x()',
+    analyzer: 'ts-analyzer@0.1.0',
     revision: 'rev1',
   };
 }
@@ -142,6 +158,54 @@ describe('CHECK constraints', () => {
         ).run();
       }),
     ).toThrow();
+  });
+});
+
+describe('unresolved_reference (ADR-0011) — not a Relationship, no evidence/target FK requirement', () => {
+  it('inserts and reads back a row with only a source Entity, no target', () => {
+    const db = freshDb();
+    insertEntities(db, [fileEntity('p1/file:a.ts', 'a.ts')]);
+    insertUnresolvedReferences(db, [unresolvedRef('u1', 'p1/file:a.ts')]);
+    const row = db.prepare('SELECT * FROM unresolved_reference WHERE id = ?').get('u1') as
+      | { kind: string; reason: string }
+      | undefined;
+    expect(row?.kind).toBe('CALLS');
+    expect(row?.reason).toBe('entity-not-extracted');
+  });
+
+  it('rejects an unknown reason value', () => {
+    const db = freshDb();
+    insertEntities(db, [fileEntity('p1/file:a.ts', 'a.ts')]);
+    expect(() =>
+      db
+        .prepare(
+          `INSERT INTO unresolved_reference
+             (id, project_id, source_id, kind, reason, file_path, start_line, start_col, end_line, end_col, snippet, analyzer, revision)
+           VALUES ('u1', 'p1', 'p1/file:a.ts', 'CALLS', 'made-up-reason', 'a.ts', 1, 1, 1, 5, 'x()', 'ts-analyzer@0.1.0', 'rev1')`,
+        )
+        .run(),
+    ).toThrow();
+  });
+
+  it('rejects a source_id that does not reference an existing Entity', () => {
+    const db = freshDb();
+    expect(() => insertUnresolvedReferences(db, [unresolvedRef('u1', 'p1/file:does-not-exist.ts')])).toThrow();
+  });
+
+  it('deleting the source Entity cascades to unresolved_reference (same pattern as relationship/evidence)', () => {
+    const db = freshDb();
+    insertEntities(db, [fileEntity('p1/file:a.ts', 'a.ts')]);
+    insertUnresolvedReferences(db, [unresolvedRef('u1', 'p1/file:a.ts')]);
+    db.prepare("DELETE FROM entity WHERE id = 'p1/file:a.ts'").run();
+    expect((db.prepare('SELECT COUNT(*) AS c FROM unresolved_reference').get() as { c: number }).c).toBe(0);
+  });
+
+  it('deleting a project cascades to unresolved_reference', () => {
+    const db = freshDb();
+    insertEntities(db, [fileEntity('p1/file:a.ts', 'a.ts')]);
+    insertUnresolvedReferences(db, [unresolvedRef('u1', 'p1/file:a.ts')]);
+    db.prepare("DELETE FROM project WHERE id = 'p1'").run();
+    expect((db.prepare('SELECT COUNT(*) AS c FROM unresolved_reference').get() as { c: number }).c).toBe(0);
   });
 });
 

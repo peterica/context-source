@@ -1,8 +1,17 @@
 import type { Db } from '../storage/db.js';
-import type { EntityKind, Relationship, RelationshipType, Resolution } from '../types.js';
+import type {
+  Entity,
+  EntityKind,
+  Relationship,
+  RelationshipType,
+  Resolution,
+  UnresolvedReference,
+  UnresolvedReferenceKind,
+  UnresolvedReferenceReason,
+} from '../types.js';
 import { hydrateRelationships } from './relationship-queries.js';
 import { getEntitiesByIds } from './entity-queries.js';
-import type { RelationshipRow } from '../storage/mappers.js';
+import { rowToUnresolvedReference, type RelationshipRow, type UnresolvedReferenceRow } from '../storage/mappers.js';
 
 export interface ProjectStats {
   entities: { total: number; byKind: Record<EntityKind, number> };
@@ -12,6 +21,12 @@ export interface ProjectStats {
     byResolution: Record<Resolution, number>;
   };
   evidence: { total: number };
+  /** ADR-0011 — 발견했지만 대상을 확정 못한 참조 개수. 그래프가 완전하지 않을 수 있다는 신호. */
+  unresolvedReferences: {
+    total: number;
+    byKind: Record<UnresolvedReferenceKind, number>;
+    byReason: Record<UnresolvedReferenceReason, number>;
+  };
 }
 
 const ENTITY_KINDS: EntityKind[] = [
@@ -30,6 +45,13 @@ const RELATIONSHIP_TYPES: RelationshipType[] = [
   'EXTENDS',
 ];
 const RESOLUTIONS: Resolution[] = ['static', 'inferred'];
+const UNRESOLVED_KINDS: UnresolvedReferenceKind[] = ['CALLS', 'IMPORTS', 'IMPLEMENTS', 'EXTENDS'];
+const UNRESOLVED_REASONS: UnresolvedReferenceReason[] = [
+  'entity-not-extracted',
+  'ambiguous-callable-type',
+  'internal-path-not-in-project',
+  'unresolvable-specifier',
+];
 
 /**
  * Web UI Overview 화면(claude-do.md M4 "Entity/Relationship/Evidence 통계")을 위한 집계 조회.
@@ -84,10 +106,33 @@ export function getProjectStats(db: Db, projectId: string): ProjectStats {
     )
     .get(projectId) as { c: number };
 
+  const unresolvedTotal = db
+    .prepare('SELECT COUNT(*) AS c FROM unresolved_reference WHERE project_id = ?')
+    .get(projectId) as { c: number };
+
+  const unresolvedByKindRows = db
+    .prepare('SELECT kind, COUNT(*) AS c FROM unresolved_reference WHERE project_id = ? GROUP BY kind')
+    .all(projectId) as unknown as { kind: UnresolvedReferenceKind; c: number }[];
+  const unresolvedByKind = Object.fromEntries(UNRESOLVED_KINDS.map((k) => [k, 0])) as Record<
+    UnresolvedReferenceKind,
+    number
+  >;
+  for (const row of unresolvedByKindRows) unresolvedByKind[row.kind] = row.c;
+
+  const unresolvedByReasonRows = db
+    .prepare('SELECT reason, COUNT(*) AS c FROM unresolved_reference WHERE project_id = ? GROUP BY reason')
+    .all(projectId) as unknown as { reason: UnresolvedReferenceReason; c: number }[];
+  const unresolvedByReason = Object.fromEntries(UNRESOLVED_REASONS.map((r) => [r, 0])) as Record<
+    UnresolvedReferenceReason,
+    number
+  >;
+  for (const row of unresolvedByReasonRows) unresolvedByReason[row.reason] = row.c;
+
   return {
     entities: { total: entityTotal.c, byKind },
     relationships: { total: relTotal.c, byType, byResolution },
     evidence: { total: evidenceTotal.c },
+    unresolvedReferences: { total: unresolvedTotal.c, byKind: unresolvedByKind, byReason: unresolvedByReason },
   };
 }
 
@@ -137,6 +182,51 @@ export function listInferredRelationships(
     const target = entitiesById.get(row.target_id);
     if (!source || !target) throw new Error(`Entity missing for relationship ${row.id}`);
     return { relationship: relationships[i]!, source, target };
+  });
+
+  return { items, total: total.c };
+}
+
+export interface UnresolvedReferenceItem {
+  reference: UnresolvedReference;
+  source: Entity;
+}
+
+export interface ListUnresolvedReferencesResult {
+  items: UnresolvedReferenceItem[];
+  total: number;
+}
+
+/**
+ * ADR-0011 — "검토" 탭의 사각지대 섹션을 위한 조회. inferred 관계 검토와 같은 페이지네이션
+ * 관례를 따른다. 대상 Entity가 없으므로(그게 이 테이블의 존재 이유다) source Entity만 함께 준다.
+ */
+export function listUnresolvedReferences(
+  db: Db,
+  projectId: string,
+  limit: number,
+  offset: number,
+): ListUnresolvedReferencesResult {
+  const total = db
+    .prepare('SELECT COUNT(*) AS c FROM unresolved_reference WHERE project_id = ?')
+    .get(projectId) as { c: number };
+
+  const rows = db
+    .prepare(
+      `SELECT id, project_id, source_id, kind, reason, file_path, start_line, start_col, end_line, end_col, snippet, analyzer, revision
+       FROM unresolved_reference
+       WHERE project_id = ?
+       ORDER BY id LIMIT ? OFFSET ?`,
+    )
+    .all(projectId, limit, offset) as unknown as UnresolvedReferenceRow[];
+
+  const sourceIds = [...new Set(rows.map((r) => r.source_id))];
+  const entitiesById = new Map(getEntitiesByIds(db, sourceIds).map((e) => [e.id, e]));
+
+  const items: UnresolvedReferenceItem[] = rows.map((row) => {
+    const source = entitiesById.get(row.source_id);
+    if (!source) throw new Error(`Entity missing for unresolved_reference ${row.id}`);
+    return { reference: rowToUnresolvedReference(row), source };
   });
 
   return { items, total: total.c };

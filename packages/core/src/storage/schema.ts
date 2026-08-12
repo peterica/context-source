@@ -108,4 +108,32 @@ CREATE TABLE IF NOT EXISTS project_tech_stack (
 
   PRIMARY KEY (project_id, category, value)
 );
+
+-- ADR-0011: 사각지대 측정. Relationship이 아니다 — target Entity가 없는(대상을 확정 못한)
+-- 진단 기록이라 relationship.target_id NOT NULL 제약과 충돌하지 않도록 별도 테이블로 둔다.
+-- source_id가 entity(id) ON DELETE CASCADE를 참조하므로 기존 증분 삭제 경로
+-- (deleteEntitiesByFilePaths, replaceProjectGraph)가 이 테이블도 자동으로 함께 정리한다.
+CREATE TABLE IF NOT EXISTS unresolved_reference (
+  id         TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+  source_id  TEXT NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
+  kind       TEXT NOT NULL CHECK (kind IN ('CALLS','IMPORTS','IMPLEMENTS','EXTENDS')),
+  reason     TEXT NOT NULL CHECK (reason IN (
+               'entity-not-extracted',
+               'ambiguous-callable-type',
+               'internal-path-not-in-project',
+               'unresolvable-specifier'
+             )),
+  file_path  TEXT NOT NULL,
+  start_line INTEGER NOT NULL,
+  start_col  INTEGER NOT NULL,
+  end_line   INTEGER NOT NULL,
+  end_col    INTEGER NOT NULL,
+  snippet    TEXT NOT NULL,
+  analyzer   TEXT NOT NULL,
+  revision   TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_unresolved_project ON unresolved_reference(project_id);
+CREATE INDEX IF NOT EXISTS idx_unresolved_source ON unresolved_reference(source_id);
 `;

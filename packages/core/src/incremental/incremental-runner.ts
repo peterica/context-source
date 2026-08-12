@@ -1,7 +1,7 @@
 import { realpathSync } from 'node:fs';
 import { analyzeProject } from '../analyzer/project-analyzer.js';
 import { loadProgram } from '../analyzer/program.js';
-import { deleteEntitiesByFilePaths, insertEntities, insertRelationshipsWithEvidence, runInTransaction, upsertExternalModuleEntities } from '../storage/ingest.js';
+import { deleteEntitiesByFilePaths, insertEntities, insertRelationshipsWithEvidence, insertUnresolvedReferences, runInTransaction, upsertExternalModuleEntities } from '../storage/ingest.js';
 import { completeRun, createRun, failRun, getLastCompletedRun, isAnyRunInProgress } from '../storage/run-repo.js';
 import type { Db } from '../storage/db.js';
 import type { AnalysisRun } from '../types.js';
@@ -96,6 +96,7 @@ export function runIncrementalAnalysis(options: RunIncrementalAnalysisOptions): 
       insertEntities(db, nonExternal);
       upsertExternalModuleEntities(db, external);
       insertRelationshipsWithEvidence(db, result.relationships);
+      insertUnresolvedReferences(db, result.unresolvedReferences);
     });
 
     const failures = result.failures.map((f) => {

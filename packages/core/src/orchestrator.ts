@@ -27,7 +27,13 @@ export function runFullAnalysis(options: RunFullAnalysisOptions): AnalysisRun {
       projectId: options.projectId,
       revision: options.revision,
     });
-    replaceProjectGraph(options.db, options.projectId, result.entities, result.relationships);
+    replaceProjectGraph(
+      options.db,
+      options.projectId,
+      result.entities,
+      result.relationships,
+      result.unresolvedReferences,
+    );
     completeRun(
       options.db,
       run.id,

@@ -264,5 +264,23 @@
       ]
     }
   ],
+  "unresolvedReferences": [
+    {
+      "id": "u-3dd480c7ddc5",
+      "sourceId": "p1/sym:src/handlers.ts#registerHandler",
+      "kind": "CALLS",
+      "reason": "ambiguous-callable-type",
+      "filePath": "src/handlers.ts",
+      "range": {
+        "startLine": 9,
+        "startCol": 3,
+        "endLine": 9,
+        "endCol": 12
+      },
+      "snippet": "handler()",
+      "analyzer": "ts-analyzer@0.1.0",
+      "revision": "rev1"
+    }
+  ],
   "failures": []
 }

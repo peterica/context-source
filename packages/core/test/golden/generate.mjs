@@ -27,6 +27,7 @@ const GOLDEN_FIXTURES = [
   'external-package',
   'parse-failure',
   'dependency-injection',
+  'unresolved-imports',
 ];
 
 const requested = process.argv.slice(2);
@@ -45,6 +46,7 @@ for (const name of targets) {
   fs.writeFileSync(outPath, JSON.stringify(golden, null, 2) + '\n');
   console.log(
     `wrote ${path.relative(process.cwd(), outPath)} ` +
-      `(${golden.entities.length} entities, ${golden.relationships.length} relationships, ${golden.failures.length} failures)`,
+      `(${golden.entities.length} entities, ${golden.relationships.length} relationships, ` +
+      `${golden.unresolvedReferences.length} unresolved, ${golden.failures.length} failures)`,
   );
 }

@@ -65,9 +65,33 @@ export interface AnalysisFailure {
   preservedRevision?: string | null;
 }
 
+// ADR-0011: 사각지대 측정. Relationship이 아니다 — target Entity가 없는(대상을 확정 못한)
+// 진단 기록이며 그래프 순회에 참여하지 않는다.
+export type UnresolvedReferenceKind = 'CALLS' | 'IMPORTS' | 'IMPLEMENTS' | 'EXTENDS';
+
+export type UnresolvedReferenceReason =
+  | 'entity-not-extracted'
+  | 'ambiguous-callable-type'
+  | 'internal-path-not-in-project'
+  | 'unresolvable-specifier';
+
+export interface UnresolvedReference {
+  id: string;
+  projectId: string;
+  sourceId: string;
+  kind: UnresolvedReferenceKind;
+  reason: UnresolvedReferenceReason;
+  filePath: string;
+  range: EvidenceRange;
+  snippet: string;
+  analyzer: string;
+  revision: string;
+}
+
 export interface AnalysisResult {
   entities: Entity[];
   relationships: Relationship[];
+  unresolvedReferences: UnresolvedReference[];
   failures: AnalysisFailure[];
   /** 이번 분석에서 실제로 처리를 시도한 프로젝트-상대 파일 경로 목록 (실패 포함) */
   analyzedFilePaths: string[];

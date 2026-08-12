@@ -45,10 +45,30 @@ export function normalizeFailures(failures) {
     .sort((a, b) => a.filePath.localeCompare(b.filePath));
 }
 
+// ADR-0011 — 발견했지만 대상을 확정 못한 참조(Relationship이 아님). 골든이 이 배열까지 완전
+// 비교해야 "사각지대 측정" 자체가 회귀하지 않는다 — 새 케이스가 조용히 인식되거나(reason이
+// 바뀌거나) 기존에 잡던 걸 더는 못 잡게 되는 변화를 놓치지 않는다.
+export function normalizeUnresolvedReferences(unresolvedReferences) {
+  return unresolvedReferences
+    .map((u) => ({
+      id: u.id,
+      sourceId: u.sourceId,
+      kind: u.kind,
+      reason: u.reason,
+      filePath: u.filePath,
+      range: u.range,
+      snippet: u.snippet,
+      analyzer: u.analyzer,
+      revision: u.revision,
+    }))
+    .sort(byId);
+}
+
 export function normalizeResult(result) {
   return {
     entities: normalizeEntities(result.entities),
     relationships: normalizeRelationships(result.relationships),
+    unresolvedReferences: normalizeUnresolvedReferences(result.unresolvedReferences),
     failures: normalizeFailures(result.failures),
   };
 }

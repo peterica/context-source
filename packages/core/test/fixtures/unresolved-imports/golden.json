@@ -1,0 +1,131 @@
+{
+  "entities": [
+    {
+      "id": "p1/file:src/broken-import.ts",
+      "kind": "file",
+      "name": "broken-import.ts",
+      "filePath": "src/broken-import.ts",
+      "range": {
+        "startLine": 1,
+        "endLine": 6
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/file:src/outside-import.ts",
+      "kind": "file",
+      "name": "outside-import.ts",
+      "filePath": "src/outside-import.ts",
+      "range": {
+        "startLine": 1,
+        "endLine": 6
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/broken-import.ts#useX",
+      "kind": "function",
+      "name": "useX",
+      "filePath": "src/broken-import.ts",
+      "range": {
+        "startLine": 3,
+        "endLine": 5
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/outside-import.ts#useOutside",
+      "kind": "function",
+      "name": "useOutside",
+      "filePath": "src/outside-import.ts",
+      "range": {
+        "startLine": 3,
+        "endLine": 5
+      },
+      "revision": "rev1"
+    }
+  ],
+  "relationships": [
+    {
+      "id": "r-8d12e7a38f58",
+      "type": "DECLARES",
+      "sourceId": "p1/file:src/outside-import.ts",
+      "targetId": "p1/sym:src/outside-import.ts#useOutside",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-110f51f9d30b",
+          "filePath": "src/outside-import.ts",
+          "range": {
+            "startLine": 3,
+            "startCol": 17,
+            "endLine": 3,
+            "endCol": 27
+          },
+          "snippet": "useOutside",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-fb55d36f830c",
+      "type": "DECLARES",
+      "sourceId": "p1/file:src/broken-import.ts",
+      "targetId": "p1/sym:src/broken-import.ts#useX",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-3d8a91599620",
+          "filePath": "src/broken-import.ts",
+          "range": {
+            "startLine": 3,
+            "startCol": 17,
+            "endLine": 3,
+            "endCol": 21
+          },
+          "snippet": "useX",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    }
+  ],
+  "unresolvedReferences": [
+    {
+      "id": "u-83b23f7cba32",
+      "sourceId": "p1/file:src/broken-import.ts",
+      "kind": "IMPORTS",
+      "reason": "unresolvable-specifier",
+      "filePath": "src/broken-import.ts",
+      "range": {
+        "startLine": 1,
+        "startCol": 1,
+        "endLine": 1,
+        "endCol": 38
+      },
+      "snippet": "import { x } from './does-not-exist';",
+      "analyzer": "ts-analyzer@0.1.0",
+      "revision": "rev1"
+    },
+    {
+      "id": "u-99415aadb364",
+      "sourceId": "p1/file:src/outside-import.ts",
+      "kind": "IMPORTS",
+      "reason": "internal-path-not-in-project",
+      "filePath": "src/outside-import.ts",
+      "range": {
+        "startLine": 1,
+        "startCol": 1,
+        "endLine": 1,
+        "endCol": 53
+      },
+      "snippet": "import { outsideHelper } from '../excluded/outside';",
+      "analyzer": "ts-analyzer@0.1.0",
+      "revision": "rev1"
+    }
+  ],
+  "failures": []
+}

@@ -10,6 +10,9 @@ import type {
   Resolution,
   TechStackCategory,
   TechStackEntry,
+  UnresolvedReference,
+  UnresolvedReferenceKind,
+  UnresolvedReferenceReason,
 } from '@contextsource/core';
 
 const API_BASE =
@@ -80,6 +83,11 @@ export interface ProjectStats {
     byResolution: Record<Resolution, number>;
   };
   evidence: { total: number };
+  unresolvedReferences: {
+    total: number;
+    byKind: Record<UnresolvedReferenceKind, number>;
+    byReason: Record<UnresolvedReferenceReason, number>;
+  };
 }
 
 export interface ProjectSummary {
@@ -123,6 +131,11 @@ export const api = {
 
   // ── 프로젝트 범위 조회 ────────────────────────────────────────────────
   getStats: (projectId: string) => request<ProjectStats>(`/projects/${projectId}/stats`),
+
+  listUnresolvedReferences: (projectId: string, limit = 50, offset = 0) =>
+    request<{ items: { reference: UnresolvedReference; source: Entity }[]; total: number }>(
+      `/projects/${projectId}/unresolved-references?limit=${limit}&offset=${offset}`,
+    ),
 
   listInferredRelationships: (projectId: string, limit = 50, offset = 0) =>
     request<{ items: { relationship: Relationship; source: Entity; target: Entity }[]; total: number }>(

@@ -184,6 +184,53 @@ describe('overload and generic method', () => {
   });
 });
 
+describe('duplicate symbol names within a file (regression, 2026-08-12)', () => {
+  // 실제 typeorm(약 28만 LOC) 전체 분석에서 `UNIQUE constraint failed: entity.id`로
+  // 재현된 실제 결함 — containerNames+name만으로 symbolPath를 만들면 서로 다른 선언이
+  // 충돌할 수 있었다(BENCHMARK.md 5.11). fixture: duplicate-symbol-names.
+  const result = analyzeProject({
+    tsconfigPath: fixtureTsconfig('duplicate-symbol-names'),
+    projectId: PROJECT,
+    revision: REV,
+  });
+
+  it('has no failures and produces no duplicate entity ids', () => {
+    expect(result.failures).toEqual([]);
+    const ids = result.entities.map((e) => e.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('disambiguates instance vs static methods of the same name (first keeps clean id, second gets $2)', () => {
+    const instance = symbolEntityId(PROJECT, 'src/index.ts', 'Widget.hasId');
+    const staticOne = symbolEntityId(PROJECT, 'src/index.ts', 'Widget.hasId$2');
+    expect(result.entities.find((e) => e.id === instance)?.kind).toBe('method');
+    expect(result.entities.find((e) => e.id === staticOne)?.kind).toBe('method');
+  });
+
+  it('disambiguates a same-named interface and class in one file', () => {
+    const iface = symbolEntityId(PROJECT, 'src/index.ts', 'Marker');
+    const cls = symbolEntityId(PROJECT, 'src/index.ts', 'Marker$2');
+    expect(result.entities.find((e) => e.id === iface)?.kind).toBe('interface');
+    expect(result.entities.find((e) => e.id === cls)?.kind).toBe('class');
+  });
+
+  it('disambiguates same-named local functions in sibling if/else blocks', () => {
+    const first = symbolEntityId(PROJECT, 'src/index.ts', 'run.helper.inner');
+    const second = symbolEntityId(PROJECT, 'src/index.ts', 'run.helper.inner$2');
+    expect(result.entities.find((e) => e.id === first)?.kind).toBe('function');
+    expect(result.entities.find((e) => e.id === second)?.kind).toBe('function');
+  });
+
+  it('re-analyzing the same unchanged fixture yields identical ids (FR-A4 stability preserved)', () => {
+    const again = analyzeProject({
+      tsconfigPath: fixtureTsconfig('duplicate-symbol-names'),
+      projectId: PROJECT,
+      revision: REV,
+    });
+    expect(again.entities.map((e) => e.id).sort()).toEqual(result.entities.map((e) => e.id).sort());
+  });
+});
+
 describe('callback and higher-order function', () => {
   const result = analyzeProject({
     tsconfigPath: fixtureTsconfig('callback-hof'),

@@ -46,6 +46,15 @@ export function extractEntitiesFromFile(
   const pending: PendingTask[] = [];
   const nodeToEntityId = new Map<ts.Node, string>();
 
+  // containerNames+name만으로 symbolPath를 만들면 서로 다른 선언이 같은 symbolPath로
+  // 충돌할 수 있다 — 같은 이름의 static/instance 멤버(BaseEntity.hasId 인스턴스 메서드 +
+  // static hasId), 같은 파일의 동명 interface/class(선언 병합 관용구), 같은 부모 함수 안
+  // 형제 블록에 있는 동명 지역 함수 등. 실제 100만+ LOC 규모 프로젝트(typeorm) 전체 분석에서
+  // `UNIQUE constraint failed: entity.id`로 재현된 실제 결함(2026-08-12 실측 검증, BENCHMARK.md
+  // 5.11) — 두 번째부터의 충돌에 결정적(같은 소스 재분석 시 항상 동일) occurrence suffix를
+  // 붙여 해결한다. 첫 번째(충돌 없는 절대다수 케이스)는 기존 id 형식을 그대로 유지한다.
+  const symbolPathOccurrences = new Map<string, number>();
+
   const fileId = fileEntityId(ctx.projectId, ctx.relativeFilePath);
   const lineCount = sourceFile.getLineAndCharacterOfPosition(sourceFile.end).line + 1;
   entities.push({
@@ -65,7 +74,12 @@ export function extractEntitiesFromFile(
     state: WalkState,
     nameNode?: ts.Node,
   ): { id: string; symbolPath: string } {
-    const symbolPath = [...state.containerNames, name].join('.');
+    const baseSymbolPath = [...state.containerNames, name].join('.');
+    // AST 방문 순서는 같은 소스에 대해 항상 동일하므로, 몇 번째 충돌인지(occurrence)를 그대로
+    // suffix로 써도 재분석 시 결정적으로 같은 id가 나온다(FR-A4 entity id 안정성 유지).
+    const occurrence = (symbolPathOccurrences.get(baseSymbolPath) ?? 0) + 1;
+    symbolPathOccurrences.set(baseSymbolPath, occurrence);
+    const symbolPath = occurrence === 1 ? baseSymbolPath : `${baseSymbolPath}$${occurrence}`;
     const id = symbolEntityId(ctx.projectId, ctx.relativeFilePath, symbolPath);
     const start = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
     const end = sourceFile.getLineAndCharacterOfPosition(node.getEnd());

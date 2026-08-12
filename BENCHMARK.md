@@ -350,7 +350,7 @@ PRD의 `static false positive 0%, recall 95%` 목표를 측정할 골든 fixture
 
 **의도적으로 하지 않은 것**: PRD 95% recall 수치 자체의 대규모 정량 검증(전수/샘플링 골든셋)은 여전히 이 항목의 범위가 아니다 — 그건 5.11이 실제 오픈소스 프로젝트(typeorm)로 별도 수행했다(소규모 수작업 표본, 대규모 정량 recall은 여전히 근사치임을 5.11도 명시). 이 항목은 "이미 있는 골든 fixture들이 실제로 완전성을 강제하는가"라는 좁은 갭만 닫는다.
 
-### 5.5 P1 — 정밀 분석 실패 시 폴백 모델 추가
+### 5.5 P1 — [해결됨] 정밀 분석 실패 시 폴백 모델 추가
 
 결과 품질을 다음처럼 구분하는 방안을 검토한다.
 
@@ -361,6 +361,8 @@ PRD의 `static false positive 0%, recall 95%` 목표를 측정할 골든 fixture
 | `unresolved` | 호출 또는 참조는 발견했지만 target을 확정하지 못함 |
 
 `unresolved`를 버리지 않으면 분석 사각지대를 측정할 수 있고 사용자가 그래프가 완전하다고 오해하는 것을 방지할 수 있다.
+
+**2026-08-12 해결(원안과 다른 형태로)**: `relationship.resolution`에 `'unresolved'`를 그대로 추가하지는 않았다 — `relationship.target_id`가 `NOT NULL` FK라 "대상을 모른다"를 넣을 자리가 없고, nullable로 바꾸면 subgraph/impact/MCP/Web UI 전체가 깨진다. 대신 [ADR-0011](./docs/adr/0011-unresolved-references.md)로 **완전히 별도의 `unresolved_reference` 테이블**(Relationship이 아님, 어떤 그래프 순회에도 참여하지 않는 순수 진단 기록)을 설계·구현했다 — "사각지대 측정"이라는 원안의 목적은 그대로 달성하면서 "Relationship은 항상 두 Entity를 잇는다"는 기존 불변식은 건드리지 않는다. 우리 프로젝트 소스 안에서 실패한 경우만 기록하고 외부 패키지·ambient 선언(`console.log` 등)은 기록하지 않는다(PRD OQ-11과 같은 경계 — 안 그러면 실제 코드베이스에서 신호가 소음에 묻힌다). `GET /projects/{id}/stats`에 집계 추가, `GET /projects/{id}/unresolved-references` 신규, Web UI "검토" 탭에 두 번째 섹션으로 추가(새 탭 없음). IMPLEMENTATION_REPORT.md §19 참고.
 
 ### 5.6 P1 — Graph-only Context Builder 도입
 
@@ -553,3 +555,4 @@ MVP는 범용 코드 인텔리전스 플랫폼보다 **Evidence 기반 TypeScrip
 | 2026-08-12 | 0.3 | 실제 규모 검증(typeorm, 5.11)과 그 과정에서 발견한 크래시·관계 유실 결함 2건 수정을 기록. 이어서 ADR-0008(변경 영향 분석)을 설계·구현해 5.1~5.3을 [해결됨]으로 표시(§6 주석 갱신 포함) — `GET /entities/{id}/impact`, `GET /analysis/runs/{id}/changed-impact` 두 endpoint와 Web UI "변경 영향" 탭. IMPLEMENTATION_REPORT.md §15~16, API.md 2.10, openapi.yaml 참고 |
 | 2026-08-12 | 0.4 | 5.4(분석 품질 측정 체계)를 [해결됨]으로 표시 — 기존 골든 fixture 9종 + 신규 `dependency-injection` 1종에 `golden.json`(정규화된 Entity/Relationship/Evidence 전체 스냅샷)을 붙이고 `packages/core/test/golden.test.ts`로 CI에서 완전 일치를 강제하는 회귀 하네스를 추가했다. 새 fixture는 §10 알려진 제한사항의 "인터페이스 타입 필드를 통한 DI 호출은 CALLS가 생성되지 않는다"를 golden.json에 명시적으로 박아 회귀 테스트로 승격시켰다. IMPLEMENTATION_REPORT.md §17 참고. §6 주석도 갱신(5.1~5.4 전부 해결) |
 | 2026-08-12 | 0.5 | 5.9(카탈로그 포지셔닝)·5.12(보안 로드맵)를 [해결됨]으로 표시 — ADR-0009(카탈로그는 코드 관계 그래프의 보조 기능으로 의도적으로 얕게 유지, Backstage와 정면 경쟁하지 않음)와 ADR-0010(로컬 단일 사용자 전제의 유효기간 + 옵트인 API key 보호장치)을 확정하고 구현했다. README.md/PRD.md 포지셔닝 문구, API.md 1.4, openapi.yaml `ApiKeyAuth` 스킴(부수적으로 기존 `security-defined` 경고 23건도 함께 해소), docker-compose.yml에 반영. 이로써 이 문서가 지금까지 제안한 P0 항목(5.1~5.4, 5.9~5.12) 전부가 닫혔다 — §6 주석 갱신. IMPLEMENTATION_REPORT.md §18 참고 |
+| 2026-08-12 | 0.6 | 5.5(정밀 분석 실패 시 폴백 모델)를 [해결됨]으로 표시 — 원안(`resolution: 'unresolved'`)은 `relationship.target_id NOT NULL` 제약과 충돌해 그대로 채택하지 않고, [ADR-0011](./docs/adr/0011-unresolved-references.md)로 Relationship이 아닌 별도의 `unresolved_reference` 진단 테이블을 설계·구현했다. `GET /projects/{id}/stats` 집계 확장, `GET /projects/{id}/unresolved-references` 신규, Web UI "검토" 탭 확장(새 탭 없음). P1/P2 항목을 하나씩 순차 진행하기로 한 것 중 첫 항목. IMPLEMENTATION_REPORT.md §19 참고 |

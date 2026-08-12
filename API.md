@@ -212,7 +212,8 @@ GET /projects/{id}/analysis/runs?limit=
 GET /projects/{id}/stats
 ```
 
-- 응답: `{ "entities": { "total", "byKind": {...} }, "relationships": { "total", "byType": {...}, "byResolution": {...} }, "evidence": { "total" } }`
+- 응답: `{ "entities": { "total", "byKind": {...} }, "relationships": { "total", "byType": {...}, "byResolution": {...} }, "evidence": { "total" }, "unresolvedReferences": { "total", "byKind": {...}, "byReason": {...} } }`
+- `unresolvedReferences`는 ADR-0011 — 아래 `GET .../unresolved-references`가 다루는 사각지대의 집계다.
 
 ```
 GET /projects/{id}/inferred-relationships?limit=&offset=
@@ -220,6 +221,16 @@ GET /projects/{id}/inferred-relationships?limit=&offset=
 
 - `resolution=inferred`인 관계를 confidence 오름차순으로 페이지네이션하여 반환한다 (검토 우선순위).
 - 응답: `{ "items": [ { "relationship": Relationship, "source": Entity, "target": Entity } ], "total": N }`
+- `limit`/`offset` 한도는 1.3절과 동일(기본 50, 최대 200).
+
+```
+GET /projects/{id}/unresolved-references?limit=&offset=
+```
+
+- ADR-0011(BENCHMARK.md 5.5) — analyzer가 호출/import/상속을 발견했지만 대상 Entity를 확정하지 못한 경우를 페이지네이션하여 반환한다. **Relationship이 아니다** — target Entity가 없고, 어떤 그래프 순회(subgraph/impact 등)에도 나타나지 않는 별도의 진단 목록이다.
+- 응답: `{ "items": [ { "reference": UnresolvedReference, "source": Entity } ], "total": N }`
+- `UnresolvedReference`: `{ "id", "sourceId", "kind": "CALLS"|"IMPORTS"|"IMPLEMENTS"|"EXTENDS", "reason": "entity-not-extracted"|"ambiguous-callable-type"|"internal-path-not-in-project"|"unresolvable-specifier", "filePath", "range", "snippet", "analyzer", "revision" }` — Evidence와 같은 위치/스니펫 필드를 갖지만 `relationship_id`가 없다.
+- 외부 패키지·TS ambient 선언(예: `console.log`)에 대한 실패는 기록하지 않는다 — OQ-11("외부 심볼에 대한 CALLS는 저장하지 않는다")과 같은 경계를 적용해, 실제 코드베이스에서 흔한 외부 API 호출이 신호를 소음에 묻히게 하지 않는다.
 - `limit`/`offset` 한도는 1.3절과 동일(기본 50, 최대 200).
 
 ### 2.8 기술 스택 — ADR-0005 (Phase 2)

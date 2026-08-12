@@ -167,6 +167,38 @@ CREATE TABLE analysis_failure (
 
   PRIMARY KEY (run_id, file_path)
 );
+
+-- ─────────────────────────────────────────────
+-- unresolved_reference: ADR-0011 (BENCHMARK.md 5.5) — 사각지대 측정.
+-- Relationship이 **아니다**. 호출/import/상속을 발견했지만 대상 Entity를 확정하지 못한
+-- 경우를 Evidence와 함께 기록하는 순수 진단 테이블이다. relationship.target_id NOT NULL
+-- 제약과 충돌하지 않도록 별도 테이블로 두었고, 어떤 그래프 순회(subgraph/impact 등)에도
+-- 참여하지 않는다. source_id가 entity(id) ON DELETE CASCADE를 참조하므로 relationship/evidence와
+-- 완전히 같은 방식으로 증분 재분석 시 자동 정리된다(3.2절 삭제 경로를 그대로 재사용, 별도 코드 불필요).
+-- ─────────────────────────────────────────────
+CREATE TABLE unresolved_reference (
+  id         TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+  source_id  TEXT NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
+  kind       TEXT NOT NULL CHECK (kind IN ('CALLS','IMPORTS','IMPLEMENTS','EXTENDS')),
+  reason     TEXT NOT NULL CHECK (reason IN (
+               'entity-not-extracted',        -- 선언은 우리 프로젝트 소스에 있지만 Entity로 추출 안 됨(인터페이스 멤버 등)
+               'ambiguous-callable-type',      -- 호출 가능 타입의 시그니처가 0개/2개 이상이라 하나로 못 좁힘
+               'internal-path-not-in-project', -- 모듈 경로는 해석됐지만 tsconfig include 밖
+               'unresolvable-specifier'        -- import specifier 자체를 해석 못함
+             )),
+  file_path  TEXT NOT NULL,
+  start_line INTEGER NOT NULL,
+  start_col  INTEGER NOT NULL,
+  end_line   INTEGER NOT NULL,
+  end_col    INTEGER NOT NULL,
+  snippet    TEXT NOT NULL,
+  analyzer   TEXT NOT NULL,
+  revision   TEXT NOT NULL
+);
+
+CREATE INDEX idx_unresolved_project ON unresolved_reference(project_id);
+CREATE INDEX idx_unresolved_source ON unresolved_reference(source_id);
 ```
 
 `PRAGMA foreign_keys`는 SQLite 데이터베이스 파일의 영구 설정이 아니라 **connection별 설정**이다. 애플리케이션은 connection을 생성할 때마다 `PRAGMA foreign_keys = ON`을 실행하고 활성화 여부를 검증해야 한다. 마이그레이션에서 한 번 실행하는 것만으로는 충분하지 않다.
@@ -200,7 +232,8 @@ COMMIT;  -- 여기서 FK 검증. evidence가 없으면 COMMIT 실패
 ```sql
 BEGIN;
 -- 분석에 성공한 파일만 교체한다. F_failure의 기존 데이터는 보존한다.
--- relationship(양방향 CASCADE) → evidence(CASCADE)가 연쇄 삭제된다
+-- relationship(양방향 CASCADE) → evidence(CASCADE)가, 그리고 unresolved_reference(source_id
+-- CASCADE, ADR-0011)도 같은 DELETE 한 번으로 함께 연쇄 삭제된다 — 별도 정리 코드가 필요 없다.
 DELETE FROM entity WHERE file_path IN (/* F_success */);
 -- 준비한 F_success 결과를 INSERT
 COMMIT;

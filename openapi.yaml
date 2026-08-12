@@ -549,6 +549,17 @@ paths:
                     type: object
                     properties:
                       total: { type: integer }
+                  unresolvedReferences:
+                    type: object
+                    description: ADR-0011 — 발견했지만 대상을 확정 못한 참조의 집계
+                    properties:
+                      total: { type: integer }
+                      byKind:
+                        type: object
+                        additionalProperties: { type: integer }
+                      byReason:
+                        type: object
+                        additionalProperties: { type: integer }
         '404': { $ref: '#/components/responses/ProjectNotFound' }
 
   /projects/{id}/inferred-relationships:
@@ -577,6 +588,38 @@ paths:
                         relationship: { $ref: '#/components/schemas/Relationship' }
                         source: { $ref: '#/components/schemas/Entity' }
                         target: { $ref: '#/components/schemas/Entity' }
+                  total: { type: integer }
+        '404': { $ref: '#/components/responses/ProjectNotFound' }
+
+  /projects/{id}/unresolved-references:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [stats]
+      summary: 사각지대(발견했지만 대상 미확정) 참조 목록
+      description: |
+        ADR-0011(BENCHMARK.md 5.5) — analyzer가 호출/import/상속을 발견했지만 대상 Entity를
+        확정하지 못한 경우를 페이지네이션 반환한다. **Relationship이 아니다** — target Entity가
+        없고 어떤 그래프 순회에도 나타나지 않는다. 외부 패키지·TS ambient 선언(예: console.log)에
+        대한 실패는 기록하지 않는다(OQ-11과 같은 경계 — 안 그러면 신호가 소음에 묻힌다).
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        reference: { $ref: '#/components/schemas/UnresolvedReference' }
+                        source: { $ref: '#/components/schemas/Entity' }
                   total: { type: integer }
         '404': { $ref: '#/components/responses/ProjectNotFound' }
 
@@ -839,6 +882,31 @@ components:
         snippet:
           type: string
           description: includeSnippets=false 요청에서는 생략될 수 있다
+        analyzer: { type: string, example: ts-analyzer@0.1.0 }
+        revision: { type: string }
+
+    UnresolvedReferenceKind:
+      type: string
+      enum: [CALLS, IMPORTS, IMPLEMENTS, EXTENDS]
+
+    UnresolvedReferenceReason:
+      type: string
+      enum: [entity-not-extracted, ambiguous-callable-type, internal-path-not-in-project, unresolvable-specifier]
+
+    UnresolvedReference:
+      type: object
+      description: |
+        ADR-0011 — Relationship이 아니다. target Entity가 없는(대상을 확정 못한) 진단 기록이며
+        어떤 그래프 순회에도 나타나지 않는다.
+      required: [id, sourceId, kind, reason, filePath, range, snippet, analyzer, revision]
+      properties:
+        id: { type: string }
+        sourceId: { type: string }
+        kind: { $ref: '#/components/schemas/UnresolvedReferenceKind' }
+        reason: { $ref: '#/components/schemas/UnresolvedReferenceReason' }
+        filePath: { type: string }
+        range: { $ref: '#/components/schemas/EvidenceRange' }
+        snippet: { type: string }
         analyzer: { type: string, example: ts-analyzer@0.1.0 }
         revision: { type: string }
 

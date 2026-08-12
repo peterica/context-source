@@ -430,3 +430,28 @@ HTTP API/MCP 모두 인증이 없다는 것 자체는 §10에 이미 알려진 �
 **총 테스트**: 신규 7개(api-key.test.ts) 포함 전체 스위트 194개 통과, typecheck/lint/production build 모두 통과.
 
 **의도적으로 하지 않은 것** (ADR-0010 "하지 않는 것" 절 그대로): 사용자 계정/세션/RBAC 도입, MCP 서버 인증(stdio라 네트워크에 노출되지 않아 이 위협 모델 밖), API key를 기본값으로 강제, 키 회전/다중 키/만료 같은 키 관리 기능, Web UI에 키를 심어 쓰기 동작까지 보호하는 것(위 이유로 의도적으로 배제).
+
+---
+
+## 19. 부록 — 사각지대 측정: `unresolved_reference` (BENCHMARK.md 5.5, 2026-08-12)
+
+ADR-0009·0010(5.9, 5.12) 완료로 이 벤치마크 문서가 제안한 P0 항목이 전부 닫힌 뒤, 사용자가 남은 P1/P2 항목을 순차 진행하기로 했다 — 각 항목이 ADR-0008급 크기라 "하나씩, 매번 설계→확인→구현→검증→커밋"으로 진행하기로 합의했다. 첫 항목은 5.5(정밀 분석 실패 시 폴백 모델).
+
+**설계가 원안과 달라진 지점**: BENCHMARK.md 5.5는 `resolution`에 `'unresolved'` 세 번째 값을 추가하자고 제안했다. 그대로 구현할 수 없었다 — `relationship.target_id`가 `NOT NULL` FK라 "대상을 모른다"를 넣을 자리가 없고, nullable로 바꾸면 subgraph/impact/MCP/Web UI 전체가 "Relationship은 항상 두 Entity를 잇는다"는 가정 위에 있어 파급이 너무 컸다. 대신 [ADR-0011](./docs/adr/0011-unresolved-references.md)로 **완전히 별도의 테이블**(`unresolved_reference`, Relationship이 아님, 그래프 순회에 참여하지 않는 순수 진단 기록)을 설계했다.
+
+**구현 요약** (ADR-0011 제안 순서 그대로):
+
+1. **스키마**: `id.ts`에 `unresolvedReferenceId()`(evidenceId와 같은 결정적 해시 방식) 추가. `schema.ts`에 `unresolved_reference` 테이블 — `source_id`가 `entity(id) ON DELETE CASCADE`를 참조해 relationship/evidence와 완전히 같은 방식으로 증분 재분석 시 자동 정리된다(별도 삭제 코드 불필요). `kind`(CALLS/IMPORTS/IMPLEMENTS/EXTENDS)와 `reason`(4종) 모두 CHECK 제약. DATA-MODEL.md §2/§3.2 갱신.
+2. **analyzer**: `resolve-relationships.ts`의 4개 pending-task 분기(call/import/dynamic-import/heritage) 각각에 "실패 시 기록" 경로를 추가했다. 핵심은 **무엇을 기록하고 무엇을 기록하지 않을지의 경계**다 — 우리 프로젝트 소스 안에서 실패한 경우만 기록하고, 외부 패키지·TS ambient 선언(`console.log` 등)에 대한 실패는 기록하지 않는다(PRD OQ-11 "외부 심볼에 대한 CALLS는 저장하지 않는다"와 같은 경계 — 안 그러면 실제 코드베이스에서 흔한 외부 API 호출 전부가 "사각지대"로 잡혀 신호가 소음에 묻힌다).
+   - **구현 중 발견한 실제 버그**: 첫 구현은 두 단계 판정(symbol 기반 → 타입 시그니처 기반 fallback)의 결과를 `candidateReason ?? 다음_판정`으로 병합했는데, `null`을 "외부로 확정"이라는 의미 있는 값으로 쓰면서 동시에 `??`가 `null`도 "아직 안 정해짐"으로 오인해 되돌아왔다 — 그 결과 `console.log`처럼 명백히 외부인 호출도 fallback 단계에서 `ambiguous-callable-type`으로 잘못 덮어써졌다. golden fixture를 만들며 실제 출력을 눈으로 확인하다가 발견했고, `undefined`(아직 판정 안 됨)와 `null`(외부로 확정, 기록 안 함)을 구분하는 3중 상태로 고쳐 해결했다 — 골든 하네스(BENCHMARK.md 5.4)가 새 기능의 첫 버그를 바로 잡아낸 사례다.
+   - "entity-not-extracted"(선언은 있지만 Entity로 추출 안 됨 — 인터페이스 멤버 등)와 "ambiguous-callable-type"(값 바인딩이라 애초에 Entity가 될 수 없음 — 지역 변수에 담긴 콜백 등)을 구분하기 위해 `looksLikeEntityDefinition()` 헬퍼로 선언의 AST 종류를 확인한다.
+3. **storage**: `insertUnresolvedReferences()`를 `replaceProjectGraph`(full scan)와 incremental runner 양쪽에 배선. 실제 임시 git repo로 증분 분석 통합 테스트를 추가해 (a) 무관한 파일 변경이 기존 사각지대 기록을 건드리지 않고, (b) 실제로 호출부를 구체 타입으로 고치면 기록이 사라지는 것을 확인했다.
+4. **query/api**: `getProjectStats()`에 `unresolvedReferences: { total, byKind, byReason }` 추가(기존 `/stats` endpoint가 그대로 반환), `listUnresolvedReferences()` + `GET /projects/{id}/unresolved-references`(기존 `/inferred-relationships`와 같은 페이지네이션 관례) 신규.
+5. **Web UI**: 새 탭을 만들지 않고 기존 "검토" 탭에 두 번째 섹션으로 추가했다(`InferredRelationshipsSection`/`UnresolvedReferencesSection`으로 분리) — inferred 관계 검토와 같은 성격("사용자가 확인해야 할 분석 한계")이기 때문. Overview에 "Unresolved" 통계 타일과 "사각지대 종류별" 패널, "사각지대 검토하기" 버튼 추가. Playwright로 실제 브라우저 검증: Overview 타일/패널 렌더링, 검토 탭 섹션 표시, 소스 Entity 링크 클릭(키보드 Enter 포함) → 탐색 탭 이동, 콘솔 에러 없음.
+6. **MCP**: 노출하지 않았다 — ADR-0008과 같은 이유(Web UI에서 실사용 검증 후 별도 판단).
+
+**신규 골든 fixture — `dependency-injection`(재사용, 5.4에서 이미 있었음) + `unresolved-imports`(신규)**: 후자는 `entity-not-extracted`/`ambiguous-callable-type`은 이미 있는 fixture(dependency-injection/callback-hof)가 커버해서, 남은 두 reason(`internal-path-not-in-project` — tsconfig include 밖 파일 import, `unresolvable-specifier` — 존재하지 않는 경로 import)만을 위해 추가했다. 골든 하네스(`normalize.mjs`)도 `unresolvedReferences` 필드까지 비교하도록 확장해, 기존 9개 fixture 전부를 재생성했다(대부분 0건, callback-hof/dependency-injection/dynamic-import만 각 1건).
+
+**총 테스트**: 신규 22개(core: golden +1, project-analyzer +8, schema-integrity +5, incremental +1, stats +3 / api: unresolved-references-endpoint +4) 포함 전체 스위트 216개 통과, typecheck/lint/production build 모두 통과. openapi.yaml `redocly lint` 계속 0 errors.
+
+**의도적으로 하지 않은 것** (ADR-0011 "하지 않는 것" 절 그대로): `relationship.resolution`에 `'unresolved'` 추가(결정 1 — 대신 별도 테이블), 외부 패키지·ambient 선언 실패 기록(결정 3 — OQ-11 경계), MCP tool 노출, "이 사각지대를 자동으로 추측해서 메워보려는" 휴리스틱(false positive 방지 원칙과 배치).

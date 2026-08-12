@@ -364,7 +364,7 @@ PRD의 `static false positive 0%, recall 95%` 목표를 측정할 골든 fixture
 
 **2026-08-12 해결(원안과 다른 형태로)**: `relationship.resolution`에 `'unresolved'`를 그대로 추가하지는 않았다 — `relationship.target_id`가 `NOT NULL` FK라 "대상을 모른다"를 넣을 자리가 없고, nullable로 바꾸면 subgraph/impact/MCP/Web UI 전체가 깨진다. 대신 [ADR-0011](./docs/adr/0011-unresolved-references.md)로 **완전히 별도의 `unresolved_reference` 테이블**(Relationship이 아님, 어떤 그래프 순회에도 참여하지 않는 순수 진단 기록)을 설계·구현했다 — "사각지대 측정"이라는 원안의 목적은 그대로 달성하면서 "Relationship은 항상 두 Entity를 잇는다"는 기존 불변식은 건드리지 않는다. 우리 프로젝트 소스 안에서 실패한 경우만 기록하고 외부 패키지·ambient 선언(`console.log` 등)은 기록하지 않는다(PRD OQ-11과 같은 경계 — 안 그러면 실제 코드베이스에서 신호가 소음에 묻힌다). `GET /projects/{id}/stats`에 집계 추가, `GET /projects/{id}/unresolved-references` 신규, Web UI "검토" 탭에 두 번째 섹션으로 추가(새 탭 없음). IMPLEMENTATION_REPORT.md §19 참고.
 
-### 5.6 P1 — Graph-only Context Builder 도입
+### 5.6 P1 — [해결됨] Graph-only Context Builder 도입
 
 MCP의 원시 조회 tool 위에 다음 기능을 수행하는 Context Builder를 둔다.
 
@@ -378,6 +378,8 @@ MCP의 원시 조회 tool 위에 다음 기능을 수행하는 Context Builder�
 Phase 1에서는 Graph-only로 구현하고 Phase 4에서 Vector Search와 결합한다.
 
 > **2026-08-11 주석**: 여기서 말하는 "Context Builder"는 아직 착수하지 않았다 — Phase 2의 "유사 프로젝트 탐색"(ADR-0006, 기술 스택 태그 교집합)과는 완전히 다른 기능이니 혼동하지 말 것. Phase 4의 Vector Search 결합은 claude-do.md의 금지사항과 직결되므로 별도 승인 없이는 착수하지 않는다.
+
+**2026-08-12 해결**: [ADR-0012](./docs/adr/0012-context-builder.md)로 설계·구현했다. 실제로 점검해보니 "seed 추출"(`search_entities`)과 "경로 기반 확장"(`get_subgraph`)은 이미 있었고, 진짜 빠진 건 관계 유형별 우선순위·이유·토큰 예산 pruning이었다. 초안은 `get_subgraph` 위에 얇은 랭킹 계층만 얹으려 했으나 `codex exec` 독립 검토에서 "대표 관계가 실제 발견 경로와 무관할 수 있다"(이유가 거짓일 위험)는 결함을 지적받아, 여러 seed가 동시에 시작하는 전용 양방향 BFS(predecessor 추적)로 다시 설계했다 — `computeImpact`/`getSubgraph` 자체는 건드리지 않았다. 토큰 예산은 실제 토크나이저 없이 문자 수 근사치(`문자수/4`)로, Evidence 중복 제거는 "후보당 발견시킨 관계 하나의 Evidence만 남긴다"로 구체화했다. `GET /projects/{id}/context`(API.md 2.11)와 MCP tool `build_context`(6번째 tool) 양쪽에 공유 core 함수 하나를 노출했고, Web UI 화면은 만들지 않았다(태생적으로 AI 클라이언트용). Phase 4의 Vector Search 결합은 여전히 다루지 않는다. IMPLEMENTATION_REPORT.md §20 참고.
 
 ### 5.7 P1 — 작업 중심·계층형 시각화
 
@@ -556,3 +558,4 @@ MVP는 범용 코드 인텔리전스 플랫폼보다 **Evidence 기반 TypeScrip
 | 2026-08-12 | 0.4 | 5.4(분석 품질 측정 체계)를 [해결됨]으로 표시 — 기존 골든 fixture 9종 + 신규 `dependency-injection` 1종에 `golden.json`(정규화된 Entity/Relationship/Evidence 전체 스냅샷)을 붙이고 `packages/core/test/golden.test.ts`로 CI에서 완전 일치를 강제하는 회귀 하네스를 추가했다. 새 fixture는 §10 알려진 제한사항의 "인터페이스 타입 필드를 통한 DI 호출은 CALLS가 생성되지 않는다"를 golden.json에 명시적으로 박아 회귀 테스트로 승격시켰다. IMPLEMENTATION_REPORT.md §17 참고. §6 주석도 갱신(5.1~5.4 전부 해결) |
 | 2026-08-12 | 0.5 | 5.9(카탈로그 포지셔닝)·5.12(보안 로드맵)를 [해결됨]으로 표시 — ADR-0009(카탈로그는 코드 관계 그래프의 보조 기능으로 의도적으로 얕게 유지, Backstage와 정면 경쟁하지 않음)와 ADR-0010(로컬 단일 사용자 전제의 유효기간 + 옵트인 API key 보호장치)을 확정하고 구현했다. README.md/PRD.md 포지셔닝 문구, API.md 1.4, openapi.yaml `ApiKeyAuth` 스킴(부수적으로 기존 `security-defined` 경고 23건도 함께 해소), docker-compose.yml에 반영. 이로써 이 문서가 지금까지 제안한 P0 항목(5.1~5.4, 5.9~5.12) 전부가 닫혔다 — §6 주석 갱신. IMPLEMENTATION_REPORT.md §18 참고 |
 | 2026-08-12 | 0.6 | 5.5(정밀 분석 실패 시 폴백 모델)를 [해결됨]으로 표시 — 원안(`resolution: 'unresolved'`)은 `relationship.target_id NOT NULL` 제약과 충돌해 그대로 채택하지 않고, [ADR-0011](./docs/adr/0011-unresolved-references.md)로 Relationship이 아닌 별도의 `unresolved_reference` 진단 테이블을 설계·구현했다. `GET /projects/{id}/stats` 집계 확장, `GET /projects/{id}/unresolved-references` 신규, Web UI "검토" 탭 확장(새 탭 없음). P1/P2 항목을 하나씩 순차 진행하기로 한 것 중 첫 항목. IMPLEMENTATION_REPORT.md §19 참고 |
+| 2026-08-12 | 0.7 | 5.6(Graph-only Context Builder)을 [해결됨]으로 표시 — [ADR-0012](./docs/adr/0012-context-builder.md). 초안(`getSubgraph` 재사용)이 `codex exec` 독립 검토에서 "이유가 실제 발견 경로와 다를 수 있다"는 결함을 지적받아, 다중 seed 동시 시작 양방향 BFS(predecessor 추적)로 재설계했다 — `computeImpact`/`getSubgraph`는 건드리지 않았다. `GET /projects/{id}/context`(API.md 2.11) + MCP tool `build_context`(6번째) 양쪽에 공유 core 함수 하나를 노출, Web UI는 만들지 않음. IMPLEMENTATION_REPORT.md §20 참고 |

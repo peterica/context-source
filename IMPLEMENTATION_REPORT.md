@@ -455,3 +455,26 @@ ADR-0009·0010(5.9, 5.12) 완료로 이 벤치마크 문서가 제안한 P0 항�
 **총 테스트**: 신규 22개(core: golden +1, project-analyzer +8, schema-integrity +5, incremental +1, stats +3 / api: unresolved-references-endpoint +4) 포함 전체 스위트 216개 통과, typecheck/lint/production build 모두 통과. openapi.yaml `redocly lint` 계속 0 errors.
 
 **의도적으로 하지 않은 것** (ADR-0011 "하지 않는 것" 절 그대로): `relationship.resolution`에 `'unresolved'` 추가(결정 1 — 대신 별도 테이블), 외부 패키지·ambient 선언 실패 기록(결정 3 — OQ-11 경계), MCP tool 노출, "이 사각지대를 자동으로 추측해서 메워보려는" 휴리스틱(false positive 방지 원칙과 배치).
+
+---
+
+## 20. 부록 — Graph-only Context Builder (BENCHMARK.md 5.6, 2026-08-12)
+
+5.5(§19) 완료 후 P1/P2를 순차 진행하는 흐름에서 두 번째 항목. 이번엔 설계 단계에서 `codex exec`(읽기 전용 독립 리뷰)에 초안을 검토받고, 그 피드백으로 설계 자체를 실질적으로 다시 짠 뒤 구현했다 — 이 프로젝트에서 처음으로 "설계 → 외부 검토 → 재설계 → 구현"을 명시적으로 거친 사례다.
+
+**갭 분석**: BENCHMARK.md 5.6이 요구한 6개 기능 중 이미 있던 것과 없던 것을 먼저 구분했다 — `search_entities`(seed 추출)와 `get_subgraph`(경로 확장 자체)는 이미 있었고, 진짜 없던 건 관계 유형별 우선순위, "왜 포함됐는지" 이유, 토큰 예산 기반 pruning 세 가지였다.
+
+**초안이 폐기된 이유**: 처음엔 `get_subgraph(direction='both')`로 이웃을 모은 뒤 그 안에서 "후보와 맞닿은 가장 강한 관계"를 대표로 고르면 될 거라 가정했다. `codex exec`에 이 설계를 물었더니 실질적인 결함을 짚었다 — `get_subgraph`는 포함된 노드 집합 **사이의 모든 관계**를 돌려주므로, 대표로 고른 관계가 seed에서 그 후보까지 실제로 밟은 탐색 경로의 edge가 아니라 우연히 인접한 다른 강한 관계일 수 있었다. "선택한 Context의 이유 반환"이 이 기능의 핵심 가치인데 그 이유가 거짓일 수 있다는 건 받아들일 수 없는 결함이라 판단해, `get_subgraph` 재사용을 포기했다.
+
+**최종 설계** ([ADR-0012](./docs/adr/0012-context-builder.md)):
+
+1. **core**: `packages/core/src/query/context-builder.ts` — 모든 seed가 동시에 depth 0에서 시작하는 양방향 BFS를 새로 작성했다. `computeImpact`(ADR-0008, 단일 소스·in 전용·경로 재구성)와 `getSubgraph`(임의 소스·임의 방향·경로 없음) 둘 다 건드리지 않고, 이 기능에만 필요한 "다중 소스 + 양방향 + predecessor 추적"을 갖춘 세 번째 순회를 뒀다 — 그래프 순회 구현이 셋이 되는 트레이드오프를 ADR에 "재검토 조건"으로 명시했다(네 번째가 필요해지면 공용 유틸리티로 통합 검토). 각 후보는 자신을 실제로 발견시킨 관계(`viaRelationship`)와 가장 가까운 seed까지의 `hopDepth`를 갖고, 관계 타입 우선순위(`CALLS`=4>`IMPLEMENTS`/`EXTENDS`=3>`IMPORTS`=2>`DECLARES`=1) → `hopDepth` → `confidence`(경로 전체 곱, ADR-0008과 같은 정의) 순으로 랭킹한다. `impact.ts`의 `REASON_TEMPLATES`를 export해 그대로 재사용했다 — 이유 문장 생성 로직을 두 곳에 만들지 않는다. 토큰 예산은 `문자수/4` 근사치이며 무엇을 셀지(entity 필드+reason+evidence 전체)를 명시했다. 단위 테스트 12개 — 양방향 확장, 다중 hop confidence 곱, 다중 seed 중복 제거(더 가까운 hopDepth가 남는지), 우선순위 정렬, DECLARES 기본 포함, 토큰 예산 pruning, `includeSnippets`, resolution 필터, 순환 안전성, `maxSeeds`. 전부 첫 시도에 통과했다.
+2. **api**: `GET /projects/{id}/context` — `query`(필수), `tokenBudget`(기본 4000, 100~20000), `maxSeeds`(기본 5, 1~20) 검증자를 새로 추가했다. 기존 `overload-generic` 골든 fixture로 이미 떠 있는 `app.test.ts`의 공용 서버를 재사용해 통합 테스트 7개를 추가했다(양방향 확장 확인, DECLARES가 우선순위상 뒤에 오는지, tokenBudget/includeSnippets 파라미터, 매칭 없는 검색어의 빈 결과, 파라미터 검증 오류 2건).
+3. **mcp**: `build_context`를 6번째 tool로 추가(기존 5개는 그대로). 통합 테스트 4개 추가 — tool 목록이 6개인지, 검색어로 seed를 찾아 양방향 context를 반환하는지, tokenBudget이 실제로 pruning되는지, 매칭 없는 검색어가 에러가 아니라 빈 결과인지.
+4. **문서**: API.md 2.11절 신설, MCP tool 표에 `build_context` 행 추가. openapi.yaml에 `ContextItem`/`ContextBuildResult` 스키마와 `/context` 경로 추가(`redocly lint` 계속 0 errors, `bundle`로 `$ref` 무결성 확인).
+
+**Web UI는 만들지 않았다** — ADR-0012 결정 4: 이 기능은 태생적으로 AI 클라이언트를 위한 것이라 사람이 브라우저에서 볼 필요가 낮고, 사람에게는 이미 탐색/영향/검토 탭이 있다.
+
+**총 테스트**: 신규 23개(core context-builder.test.ts 12 + api app.test.ts 7 + mcp mcp.test.ts 4) 포함 전체 스위트 238개(core 156 + api 71 + mcp 11) 통과, typecheck/lint/production build 모두 통과. openapi.yaml `redocly lint` 계속 0 errors.
+
+**의도적으로 하지 않은 것** (ADR-0012 "하지 않는 것" 절 그대로): `computeImpact`/`getSubgraph`의 시그니처나 알고리즘 변경, 실제 토크나이저 의존성 추가, 자연어 질문의 서버 측 파싱(NLP/임베딩 — `query`는 AI 클라이언트가 이미 뽑아낸 검색어로만 취급), Web UI 화면, Phase 4의 Vector Search 결합.

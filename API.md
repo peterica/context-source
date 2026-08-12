@@ -303,6 +303,44 @@ GET /projects/{id}/analysis/runs/{runId}/changed-impact?depth=3&types=&resolutio
 
 Web UI는 이 두 endpoint를 "변경 영향" 탭에서 쓴다 — 최신 완료 run을 기본으로, `isDirectImpact`(직접 영향) → 나머지(간접 영향) → `isLikelyTestFile`(관련 테스트로 보이는 파일) 순서로 그룹핑해 보여준다(ADR-0008 결정 5, BENCHMARK.md 5.3의 검토 순서). MCP tool로는 아직 노출하지 않는다(ADR-0008 "하지 않는 것").
 
+### 2.11 Context Builder — ADR-0012 (BENCHMARK.md 5.6)
+
+`search_entities`(2.1)로 seed를 찾고 `get_subgraph`(2.5)로 경로를 확장하는 것까지는 이미 됐지만, "관계 유형별 우선순위", "왜 이 후보가 포함됐는지 이유", "토큰 예산 기반 pruning"은 없었다. 이 갭을 메우는 조회이며, 태생적으로 AI 클라이언트(MCP)를 위한 것이지만 Shared Context 원칙에 따라 HTTP API로도 동일하게 제공한다 — Web UI 화면은 만들지 않는다(ADR-0012 결정 4).
+
+```
+GET /projects/{id}/context?query=&tokenBudget=4000&maxSeeds=5&depth=3&types=&resolution=&includeSnippets=true
+```
+
+- `query`(필수) — seed Entity를 찾을 검색어(이름 부분 일치, `search_entities`와 같은 방식). **자연어 질문 자체가 아니다** — 질문을 이해하고 검색어를 뽑는 건 이 API를 호출하는 AI 클라이언트의 역할이다. 서버는 NLP/임베딩으로 질문을 해석하지 않는다(claude-do.md의 Vector Search 금지와 직결).
+- `tokenBudget` 기본 4000, 최소 100, 최대 20000. 실제 토크나이저 없이 문자 수 기반 근사치(`문자수 / 4`)를 쓴다 — "예산 이하 보장"이 아니라 "대략 이 정도"라는 신호다. 응답의 `estimatedTokens`가 실제 사용된 근사치다.
+- `maxSeeds` 기본 5, 최대 20. `depth` 기본 3, 최대 5. `types` 기본값은 5종 전부(`DECLARES` 포함 — impact 분석과 달리 "이 심볼이 어디 소속인지"도 유용한 맥락이라 배제하지 않는다, 다만 우선순위는 최하위). `includeSnippets`는 2.5와 같은 의미.
+- 경로 확장은 `get_subgraph`를 재사용하지 않는다 — 대신 모든 seed가 동시에 시작하는 양방향 BFS를 전용으로 두어, 각 후보를 "실제로 발견시킨 관계"(predecessor)를 추적한다. `get_subgraph`는 포함된 노드 사이의 모든 관계를 돌려주기 때문에 "가장 강한 이웃 관계"를 고르면 그게 실제 발견 경로와 무관할 수 있다 — 이유가 진짜 발견 경로와 다를 수 있다는 결함이라 채택하지 않았다(ADR-0012 결정 1, 초안을 codex 독립 검토로 재설계한 지점).
+- 응답:
+
+```jsonc
+{
+  "seeds": [Entity],
+  "items": [
+    {
+      "entity": Entity,
+      "relationshipType": "CALLS",              // 이 후보를 발견시킨 마지막 hop의 타입
+      "reason": "createOrder가 charge를 호출합니다",  // 2-hop 이상이면 " (경로 N단계)" 접미, ADR-0008과 같은 템플릿 재사용
+      "confidence": 1.0,                         // 발견 경로 위 각 hop의 confidence를 곱한 값
+      "hasInferredHop": false,
+      "hopDepth": 1,                             // 가장 가까운 seed까지의 hop 수
+      "evidence": [Evidence]                     // 발견시킨 마지막 hop의 Evidence — 같은 Entity가 여러 경로로 발견돼도 하나만
+    }
+  ],
+  "estimatedTokens": 812,
+  "tokenBudget": 4000,
+  "truncated": false
+}
+```
+
+- 정렬(랭킹): 관계 타입 우선순위(`CALLS` > `IMPLEMENTS`/`EXTENDS` > `IMPORTS` > `DECLARES`) 내림차순 → `hopDepth` 오름차순 → `confidence` 내림차순 → `entity.id` 오름차순(결정적).
+- Pruning: 정렬된 순서대로 누적 `estimatedTokens`가 `tokenBudget`을 넘기 전까지 채우고, 넘는 순간 멈춘다(`truncated: true`) — 더 작은 항목을 찾아 계속 채우지 않는다. 우선순위 순서를 그대로 지키는 게 "왜 잘렸는지" 설명 가능성에 더 중요하다는 의도적 선택이다.
+- `query`가 아무 Entity와도 매칭되지 않으면 `seeds`/`items` 모두 빈 배열, `truncated: false`를 반환한다(에러 아님).
+
 ---
 
 ## 3. MCP Tools — FR-Q7, FR-AI1, FR-AI3
@@ -317,9 +355,10 @@ MCP 서버 프로세스는 (HTTP API와 달리) 여전히 프로젝트 하나에
 | `get_entity` | `id` | 2.2 | Entity 상세와 관계 개수 |
 | `get_callers` / `get_callees` | `id`, `limit?` | 2.4 | 호출 관계 (Evidence 포함) |
 | `get_subgraph` | `id`, `direction?`, `depth?`, `types?`, `maxNodes?`, `includeSnippets?` | 2.5 | 영향 분석·구조 설명용 서브그래프 |
+| `build_context` | `query`, `tokenBudget?`, `maxSeeds?`, `depth?`, `types?`, `resolution?`, `includeSnippets?` | 2.11 | 검색어로 찾은 seed 주변을 우선순위·토큰 예산으로 추린 context 묶음(ADR-0012) |
 
 - 응답 JSON은 HTTP API와 동일한 DTO를 사용한다. Evidence가 항상 포함되므로 AI는 답변에 코드 위치를 인용할 수 있다 (FR-AI2).
-- `maxNodes`와 `includeSnippets=false`가 토큰 예산 제어 수단이다 (FR-AI3). 전체 그래프 덤프 tool은 의도적으로 제공하지 않는다 (FR-AI1, Query-first).
+- `maxNodes`/`tokenBudget`과 `includeSnippets=false`가 토큰 예산 제어 수단이다 (FR-AI3). 전체 그래프 덤프 tool은 의도적으로 제공하지 않는다 (FR-AI1, Query-first).
 
 ---
 

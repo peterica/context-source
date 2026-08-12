@@ -47,6 +47,8 @@ tags:
     description: 유사 프로젝트 탐색 (ADR-0006)
   - name: impact
     description: 변경 영향 분석 — 후보 랭킹·이유·경로·신뢰도 (ADR-0008)
+  - name: context
+    description: Context Builder — 검색어로 찾은 seed 주변을 우선순위·토큰 예산으로 추린 context (ADR-0012)
   - name: health
     description: 헬스체크 (Docker/오케스트레이터용, BENCHMARK.md 5.16)
 
@@ -445,6 +447,58 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '404': { $ref: '#/components/responses/RunNotFound' }
+
+  /projects/{id}/context:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [context]
+      summary: Context Builder — 검색어 주변을 우선순위·토큰 예산으로 추린 context
+      description: |
+        search_entities와 같은 방식으로 검색어에 맞는 seed Entity를 찾고, 거기서 양방향으로
+        뻗어나가며 발견한 Entity를 관계 우선순위(CALLS>IMPLEMENTS/EXTENDS>IMPORTS>DECLARES)와
+        hopDepth·confidence로 랭킹해 반환한다(ADR-0012, BENCHMARK.md 5.6). query는 자연어
+        질문 자체가 아니라 그 질문에서 뽑아낸 검색어다 — 서버는 질문을 해석하지 않는다.
+        경로 확장은 getSubgraph를 재사용하지 않는다 — 포함된 노드 사이의 모든 관계를 돌려주는
+        getSubgraph 위에서 "가장 강한 이웃 관계"를 고르면 실제 발견 경로와 무관할 수 있어(이유가
+        거짓일 위험), 여러 seed가 동시에 시작하는 전용 양방향 BFS로 각 후보의 진짜 발견 경로를
+        추적한다.
+      parameters:
+        - name: query
+          in: query
+          required: true
+          description: seed Entity를 찾을 검색어(이름 부분 일치)
+          schema: { type: string }
+        - name: tokenBudget
+          in: query
+          description: |
+            문자 수 기반 근사치(문자수/4)로 계산한 토큰 예산 — 실제 토크나이저 없이 "예산 근처"를
+            보장하는 신호다. 정렬된 순서대로 채우다 넘으면 그 자리에서 멈춘다(truncated:true).
+          schema: { type: integer, default: 4000, minimum: 100, maximum: 20000 }
+        - name: maxSeeds
+          in: query
+          schema: { type: integer, default: 5, minimum: 1, maximum: 20 }
+        - name: depth
+          in: query
+          schema: { type: integer, default: 3, minimum: 0, maximum: 5 }
+        - name: types
+          in: query
+          description: '기본값은 5종 전부(DECLARES 포함 — impact와 달리 배제하지 않음, 우선순위만 최하위)'
+          schema: { type: string, example: 'CALLS,IMPORTS' }
+        - name: resolution
+          in: query
+          schema: { $ref: '#/components/schemas/Resolution' }
+        - name: includeSnippets
+          in: query
+          schema: { type: boolean, default: true }
+      responses:
+        '200':
+          description: 'OK — query가 아무 Entity와도 매칭되지 않으면 seeds/items 모두 빈 배열(에러 아님)'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContextBuildResult' }
+        '400': { $ref: '#/components/responses/InvalidParam' }
+        '404': { $ref: '#/components/responses/ProjectNotFound' }
 
   /projects/{id}/analysis/runs:
     parameters:
@@ -1017,6 +1071,45 @@ components:
           properties:
             changedEntityCount: { type: integer }
             candidateCount: { type: integer }
+
+    ContextItem:
+      type: object
+      description: ADR-0012 — 이 후보를 실제로 발견시킨 관계(마지막 hop) 기준의 정보다.
+      required: [entity, relationshipType, reason, confidence, hasInferredHop, hopDepth, evidence]
+      properties:
+        entity: { $ref: '#/components/schemas/Entity' }
+        relationshipType:
+          allOf: [{ $ref: '#/components/schemas/RelationshipType' }]
+          description: 이 후보를 발견시킨 마지막 hop의 관계 타입
+        reason:
+          type: string
+          example: 'createOrder가 charge를 호출합니다'
+          description: 2-hop 이상이면 "(경로 N단계)" 접미 — ADR-0008의 템플릿을 그대로 재사용
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: 발견 경로 위 각 hop의 confidence를 곱한 값
+        hasInferredHop: { type: boolean }
+        hopDepth: { type: integer, description: 가장 가까운 seed까지의 hop 수 }
+        evidence:
+          type: array
+          items: { $ref: '#/components/schemas/Evidence' }
+          description: 발견시킨 마지막 hop의 Evidence — 같은 Entity가 여러 경로로 발견돼도 하나만 남는다
+
+    ContextBuildResult:
+      type: object
+      properties:
+        seeds:
+          type: array
+          items: { $ref: '#/components/schemas/Entity' }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ContextItem' }
+        estimatedTokens: { type: integer, description: 문자수/4 근사치로 계산한 실제 사용량 }
+        tokenBudget: { type: integer }
+        truncated: { type: boolean }
 
     Project:
       type: object

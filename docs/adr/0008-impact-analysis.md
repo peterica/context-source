@@ -1,6 +1,6 @@
 # ADR-0008: 변경 영향 분석 (Impact Analysis)
 
-- **상태**: 제안 (구현 전, 사용자 확인 대기)
+- **상태**: 채택, 구현 완료 (2026-08-12 — core/api/web UI 전 단계, IMPLEMENTATION_REPORT.md §16)
 - **날짜**: 2026-08-12
 - **근거 문서**: PRD.md 목표 #4·FR-Q4·FR-V1, BENCHMARK.md 5.1~5.3, DATA-MODEL.md, API.md 2.5, claude-do.md
 

@@ -256,7 +256,7 @@ Backstage는 Spotify가 만들어 CNCF(Cloud Native Computing Foundation)에 기
 
 > **2026-08-11 추가**: 이 프로젝트의 최초 구현 지시서(claude-do.md)는 (1) Vector Search 추가, (2) 다중 Project 지식 그래프 확장, (3) 소스 코드를 외부 SaaS/AI API로 전송을 명시적으로 금지한다. 이 제약은 여전히 유효하며, 아래 5.6·5.8과 신규 항목 어디에도 이를 무효화하는 결정은 없다. 5.6이 언급하는 "Phase 4의 Vector Search 결합"은 별도 승인 전까지 착수하지 않는 먼 미래 항목이며, Phase 2에서 실제로 구현된 "유사 프로젝트 탐색"(ADR-0006)은 이름이 비슷해 보여도 순수 태그 교집합 계산일 뿐 Vector Search가 아니다 — 두 개념을 혼동하지 않도록 주의.
 
-### 5.1 P0 — 변경 영향 분석의 의미 정의
+### 5.1 P0 — [해결됨] 변경 영향 분석의 의미 정의
 
 현재 MVP의 5개 관계만으로는 실제로 무엇이 깨지는지 판정하기 어렵다. 예를 들어 인터페이스 필드 변경의 영향은 `CALLS`, `IMPORTS`, `IMPLEMENTS`, `EXTENDS`만으로 충분히 발견되지 않는다.
 
@@ -283,7 +283,9 @@ MVP에서는 기능을 **구조적 영향 후보 탐색**으로 정의하고, �
 5. `EXPORTS` / `REEXPORTS`
 6. `TESTS`
 
-### 5.2 P0 — Edge 조회에서 Path 조회로 확장
+**2026-08-12 해결**: [ADR-0008](./docs/adr/0008-impact-analysis.md)이 이 항목의 정의를 그대로 채택해 `computeImpact()`(`packages/core/src/query/impact.ts`)로 구현했다. 위 예시 응답 형태(`candidate`/`reason`/`path`/`confidence`/`evidence`)와 거의 동일하며, `evidence`는 `path` 배열의 각 hop 안에 담아 재구성한다(새 DTO를 만들지 않고 기존 Relationship/Evidence 필드를 재사용). 새 Relationship Type 6종(`REFERENCES` 등)은 ADR-0008이 명시적으로 범위 밖으로 미뤘다 — 기존 5개 타입만으로 "후보 랭킹+이유+경로+신뢰도"라는 구조 자체는 완전하고, 부족한 건 recall이지 아키텍처가 아니라는 판단(재검토 조건: 실사용 후 놓치는 영향이 많이 확인되면 `REFERENCES`부터 개별 ADR로 추가). IMPLEMENTATION_REPORT.md §16 참고.
+
+### 5.2 P0 — [해결됨] Edge 조회에서 Path 조회로 확장
 
 사용자가 궁금한 것은 그래프 전체보다 영향의 이유와 경로다. 다음 Query를 검토한다.
 
@@ -301,7 +303,9 @@ GET /analysis/runs/{id}/changed-subgraph
 - `static`/`inferred` 혼합 여부
 - 결과가 잘린 이유와 미탐색 범위
 
-### 5.3 P0 — Git diff를 핵심 사용자 진입점으로 활용
+**2026-08-12 해결**: 셋 중 `GET /paths?from=&to=`(범용 경로 질의)는 채택하지 않았다 — PRD.md OQ-3의 기존 결정("고정 오퍼레이션으로 못 푸는 질문이 실제로 반복되기 전까지 범용 Query 언어를 추가하지 않는다")과 정면으로 배치되기 때문(ADR-0008 결정 4). 나머지 둘은 이름을 다듬어 구현했다: `GET /projects/{id}/entities/{encodedId}/impact`(후보 순위·대표 경로·관계별 Evidence·`hasInferredHop`로 static/inferred 혼합 여부·`truncated`/`stats`로 잘린 범위를 모두 포함), `changed-subgraph`는 "raw graph가 아니라 랭킹된 impact"라는 방향에 맞춰 `GET /projects/{id}/analysis/runs/{id}/changed-impact`로 이름을 바꿔 구현했다. API.md 2.10, openapi.yaml 참고.
+
+### 5.3 P0 — [해결됨] Git diff를 핵심 사용자 진입점으로 활용
 
 Git diff를 단순 증분 분석 입력뿐 아니라 사용자 경험의 첫 화면으로 활용한다.
 
@@ -318,6 +322,8 @@ Evidence 기반 검토 순서
 ```
 
 핵심 질문은 “그래프가 최신인가?”가 아니라 “이번 변경에서 무엇을 검토해야 하는가?”가 되어야 한다.
+
+**2026-08-12 해결**: Web UI에 이 흐름 그대로 "변경 영향" 탭(`/projects/:id/impact`)을 추가했다(ADR-0008 결정 5). 분석 run을 고르면(기본값: 최신 완료 run) `changed-impact`를 조회해 `isDirectImpact` 그룹(직접 영향) → 나머지(간접 영향) → `isLikelyTestFile`(관련 테스트로 보이는 파일, `TESTS` 관계 타입 없이 파일 경로 패턴 휴리스틱만 사용) 순서로 묶어 보여주고, 각 후보를 펼치면 경로별 Evidence까지 인라인으로 확인할 수 있다. Playwright로 실제 브라우저에서 전체 흐름을 검증했다. IMPLEMENTATION_REPORT.md §16 참고.
 
 ### 5.4 P0 — 분석 품질 측정 체계 구축
 
@@ -510,7 +516,7 @@ Web UI(React+Cytoscape.js)에서 키보드 내비게이션, 스크린리더, 색
 
 Sourcegraph의 검색 규모, Copilot의 AI 범용성, Joern의 분석 깊이를 그대로 따라가기보다는 **로컬 TypeScript 프로젝트의 변경 영향을 근거와 함께 설명하는 공통 Context 계층**에 집중하는 것이 가장 선명한 차별화 전략이다.
 
-> **2026-08-11 주석 — 권장 순서와 실제 실행의 괴리**: 실제로는 MVP(1~5에 해당하는 Phase 1) 완료 직후 6·7이 아니라 ROADMAP.md Phase 2 "Project Knowledge Base"(Project Entity·기술 스택 관리·유사 프로젝트 탐색)에 먼저 착수했다 — 이 문서의 P0 항목인 5.1(영향 분석 의미 정의)~5.4(품질 측정 체계)는 여전히 미착수 상태다(IMPLEMENTATION_REPORT.md §12~14 참고). 이는 사용자가 명시적으로 Phase 2를 지시했기 때문이며 그 자체로 잘못된 선택은 아니지만, 이 벤치마크 문서가 제안한 우선순위가 실제 의사결정에 그대로 반영되지는 않았다는 사실은 솔직하게 기록해야 한다 — 벤치마크 문서의 실효성을 스스로 점검하는 차원에서 남긴다.
+> **2026-08-11 주석 — 권장 순서와 실제 실행의 괴리**: 실제로는 MVP(1~5에 해당하는 Phase 1) 완료 직후 6·7이 아니라 ROADMAP.md Phase 2 "Project Knowledge Base"(Project Entity·기술 스택 관리·유사 프로젝트 탐색)에 먼저 착수했다 — 이 문서의 P0 항목인 5.1(영향 분석 의미 정의)~5.4(품질 측정 체계)는 그 시점엔 여전히 미착수 상태였다(IMPLEMENTATION_REPORT.md §12~14 참고). 이는 사용자가 명시적으로 Phase 2를 지시했기 때문이며 그 자체로 잘못된 선택은 아니지만, 이 벤치마크 문서가 제안한 우선순위가 실제 의사결정에 그대로 반영되지는 않았다는 사실은 솔직하게 기록해야 한다 — 벤치마크 문서의 실효성을 스스로 점검하는 차원에서 남긴다. **2026-08-12 갱신**: Phase 2 완결과 실제 규모 검증(5.11) 이후 5.1~5.3은 [해결됨]으로 닫혔다(ADR-0008, IMPLEMENTATION_REPORT.md §16). 5.4(분석 품질 측정 체계)는 여전히 미착수다.
 
 ---
 
@@ -534,3 +540,4 @@ MVP는 범용 코드 인텔리전스 플랫폼보다 **Evidence 기반 TypeScrip
 |------|------|-----------|
 | 2026-08-04 | 0.1 (Draft) | 최초 작성 — Sourcegraph/CodeSee/Copilot/CodeQL/Joern 5개 제품 분석, 개선 과제 5.1~5.8 |
 | 2026-08-11 | 0.2 | Phase 2(Project Entity·기술 스택 관리·유사 프로젝트 탐색) 완료 및 P0 결함 수정 이후, 경쟁 벤치마킹 서브에이전트의 독립 검토를 반영해 개정. 주요 변경: (1) Backstage(내부 개발자 포털) 카테고리 신설(3.6), (2) CodeSee의 단종·GitKraken 인수 사실 반영(3.2), (3) §4 차별화 서술에 Phase 2 반영, (4) 5.4/5.6에 현재 상태 주석 추가, (5) 신규 개선 과제 5.9~5.20 추가(성능 실측·보안·CI·확장성·다중 언어·운영 성숙도·문서 발견성·라이선스·접근성 등), (6) 유사 프로젝트 스코어링 결함을 5.10에 기록하고 해결 완료로 표시, (7) §6에 권장 순서와 실제 실행의 괴리를 주석으로 기록, (8) §7에 "0일차 프로젝트" 전제 명시 |
+| 2026-08-12 | 0.3 | 실제 규모 검증(typeorm, 5.11)과 그 과정에서 발견한 크래시·관계 유실 결함 2건 수정을 기록. 이어서 ADR-0008(변경 영향 분석)을 설계·구현해 5.1~5.3을 [해결됨]으로 표시(§6 주석 갱신 포함) — `GET /entities/{id}/impact`, `GET /analysis/runs/{id}/changed-impact` 두 endpoint와 Web UI "변경 영향" 탭. IMPLEMENTATION_REPORT.md §15~16, API.md 2.10, openapi.yaml 참고 |

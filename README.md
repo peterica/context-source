@@ -38,6 +38,7 @@ MVP(Phase 1, M1~M5)가 구현되어 있다. 상세 내용은 [IMPLEMENTATION_REP
 | Phase 2 | Project Entity — 여러 프로젝트 등록/검색/관리 ([ADR-0004](./docs/adr/0004-project-entity.md)) | 완료 |
 | Phase 2 | 기술 스택 관리 — Language/Runtime/Framework/ORM/Database/Build Tool ([ADR-0005](./docs/adr/0005-tech-stack-management.md)) | 완료 |
 | Phase 2 | 유사 프로젝트 탐색 / 프로젝트 간 관계 분석 — 기술 스택 태그 교집합 기반 ([ADR-0006](./docs/adr/0006-similar-project-discovery.md)) | 완료 |
+| M6 | 변경 영향 분석 — 후보 랭킹·이유·경로·신뢰도, Git diff 연동, Web UI "변경 영향" 탭 ([ADR-0008](./docs/adr/0008-impact-analysis.md)) | 완료 |
 
 ## 아키텍처
 

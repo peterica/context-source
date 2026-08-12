@@ -355,3 +355,24 @@ Phase 2 완결과 벤치마크 P0/P1/P2 항목 정리 이후, 사용자가 "실�
 **재현 방법** (검증 재현용): typeorm 같은 대형 프로젝트를 등록 → 전체 분석 → git으로 관리되는 여러(10개 이상) 파일에 사소한 변경(빈 줄 추가 등)을 만들어 커밋 → 증분 분석 실행 → `GET /projects/{id}/stats`의 `relationships.total`이 전체 분석 때보다 줄어드는지 확인(수정 후에는 줄어들지 않아야 한다). 안전을 위해 스크래치 클론에서 진행했다(원본 typeorm 저장소나 이 저장소 자체에는 어떤 변경도 하지 않았다).
 
 **의도적으로 하지 않은 것**: PRD 95% recall 기준의 대규모 정량 검증(전수/샘플링 골든셋 구축은 별도 과제), 두 번째 오픈소스 프로젝트로의 교차 검증.
+
+---
+
+## 16. 부록 — M6: 변경 영향 분석 (2026-08-12)
+
+실제 규모 검증(§15)에서 드러난 두 결함을 먼저 고친 뒤, 사용자가 BENCHMARK.md 5.1~5.3("영향 분석 기능부터 설계하자")을 다음 작업으로 지정했다. `GET /entities/{id}/subgraph?direction=in`이 그래프는 주지만 "왜 영향을 받는지", "가장 확실한 후보가 뭔지"는 답하지 않는다는 갭을 메우는 기능으로, 설계를 먼저 [ADR-0008](./docs/adr/0008-impact-analysis.md)에 기록해 사용자 확인을 받은 뒤 구현했다.
+
+**설계 요지** (ADR-0008 전문 참고): 새 Relationship Type(`REFERENCES` 등 6종)이나 범용 Path Query 언어(`GET /paths?from=&to=`)는 추가하지 않는다 — 기존 5개 관계 타입 위에 "후보 랭킹 + 이유 + 경로 + 신뢰도"라는 조회 계층만 얹는다(claude-do.md의 "PRD에 없는 기능 추가 금지", PRD.md OQ-3의 범용 Query 언어 보류 결정과 일관). 알고리즘은 SQL recursive CTE 대신 애플리케이션 레벨 BFS로 후보별 대표 경로를 재구성한다(SQL CTE의 `MIN(depth) GROUP BY`는 "어느 edge로 처음 도달했는지"를 버리기 때문 — `findReverseImporters`의 전이적 폐포 구현(§15, 커밋 `fd1e207`)과 같은 이유로 같은 패턴을 재사용).
+
+**구현 요약** (구현 순서 그대로 4단계, 각 단계마다 typecheck/lint/test 통과 후 개별 커밋):
+
+1. **core**: `computeImpact(db, params)` — root부터 역방향(`direction=in`)으로 BFS하며 `visited` 맵에 `{predecessor, viaRelationshipRow, hopDepth}`를 기록해 후보별 대표 경로를 재구성한다. `confidence`는 새 필드 없이 경로 위 각 관계의 기존 `confidence`를 곱한 값, `reason`은 관계 타입별 한국어 템플릿(`"{source}가 {target}를 호출합니다"` 등)으로 후보에 가장 가까운 첫 hop을 문장화한다. `DECLARES`는 기본 순회 대상에서 제외(컨테이너→멤버는 "누가 의존하는가"가 아니므로). 단위 테스트 9개(단일/다중 hop, inferred 섞인 confidence 곱셈, depth/maxCandidates 절단, 순환 그래프 안전성, resolution 필터, 동점 처리).
+2. **api**: `GET /projects/{id}/entities/{encodedId}/impact` — `computeImpact`를 감싸는 조회 endpoint. `depth` 기본 3(subgraph의 2보다 깊게 — impact는 더 먼 후보까지 보고 싶은 용도), `maxCandidates` 기본 50/최대 200. 통합 테스트 5개.
+3. **core+api**: `computeChangedImpact` / `GET /projects/{id}/analysis/runs/{id}/changed-impact` — run의 `baseRevision`~`revision` 사이 git diff를 **저장하지 않고 조회 시점에 재계산**(`loadProgram`으로 TS Program을 다시 만들지 않고 `diffNameStatus`/`resolveGitRoot`만 재사용 — §15의 NFR-3 실측 이후 불필요한 재빌드로 성능 회귀를 만들지 않기 위함). 변경된 각 파일이 선언한 Entity마다 impact를 구해 병합·중복 제거(동일 후보가 여러 changed entity에서 나오면 confidence가 더 높은 쪽, 동률이면 경로가 짧은 쪽이 남는다)하고, `isDirectImpact`(hopDepth===1)와 `isLikelyTestFile`(새 `TESTS` 관계 타입 없이 파일 경로 패턴 휴리스틱만 적용 — ADR-0008이 명시적으로 구조적 관계 도입을 보류)을 추가한다. `baseRevision`이 없는 run(최초 전체 분석)은 API 경계에서 `400 INVALID_PARAM`으로 거부(검증 책임을 core가 아닌 API에 둬 core 함수의 파라미터는 non-nullable로 유지). core 통합 테스트 2개(직접/간접 영향 판정, 여러 changed entity 병합 시 절단) + api 통합 테스트 4개(성공 케이스, baseRevision 없음, 알 수 없는 run, depth 상한) — 전부 실제 임시 git repo + 실제 HTTP 서버로 검증.
+4. **web**: "변경 영향" 탭(`/projects/:id/impact`) — BENCHMARK.md 5.3이 요구한 검토 순서(직접 영향 → 간접 영향 → 관련 테스트로 보이는 파일)를 그대로 화면 구조로 옮겼다. 분석 run 선택 드롭다운(기본값은 최신 완료 run), 각 후보는 `reason` 문장 + confidence 배지(기존 `RESOLUTION_TOOLTIP` 툴팁 패턴 재사용)로 표시하고 클릭 시 탐색 탭의 Entity 상세로 이동한다(`clickableRowProps` 재사용 — 키보드 접근성 유지). 경로 펼치기는 RunHistory의 실패 목록 인라인 펼치기와 같은 패턴을 재사용해 각 hop의 관계 타입·resolution·confidence·Evidence 스니펫을 보여준다. `path` 배열이 entity 이름을 담지 않아(새 DTO를 만들지 않기로 한 결정) 후보 수만큼 개별 entity를 조회하는 대신, DATA-MODEL.md §1의 안정된 id 스킴을 파싱하는 `entityIdLabel()`(format.ts)로 표시용 라벨만 뽑았다. Playwright로 실제 브라우저에서 3개 그룹 렌더링, 경로 펼치기, 후보 클릭 → 탐색 탭 네비게이션, baseRevision 없는 run 선택 시 에러 메시지, 키보드(Tab+Enter) 네비게이션을 확인 — 콘솔 에러 없음.
+
+**API 문서화**: API.md 2.10절과 openapi.yaml에 두 endpoint(`/impact`, `/changed-impact`)와 관련 스키마(`ImpactCandidate`, `ImpactPathStep`, `ImpactResult`, `ChangedImpactCandidate`, `ChangedImpactResult`)를 추가했다. `openapi.yaml`은 기존에도 `security-defined`/`operationId` 관련 경고·에러가 전체 endpoint에 걸쳐 있었고(인증 없는 로컬 단일 사용자 도구라는 의도된 설계) 이번 추가로 새 카테고리의 에러는 생기지 않았다 — `bundle` 결과 `$ref` 해석 에러 없음을 확인했다.
+
+**총 테스트**: 신규 20개(core 11 + api 9) 포함 전체 스위트 171개(core 110 + api 53 + mcp 8) 통과, typecheck/lint/production build 모두 통과.
+
+**의도적으로 하지 않은 것** (ADR-0008 "하지 않는 것" 절 그대로): 새 Relationship Type 추가, 범용 Path Query 언어, "이게 실제로 깨진다"는 단정적 예측이나 자동 수정 제안, `TESTS` 관계 타입 기반의 정확한 테스트 매핑(경로 패턴 휴리스틱으로 대체), MCP tool 노출(Web UI에서 기능이 검증된 뒤 별도 판단).

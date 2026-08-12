@@ -38,6 +38,8 @@ tags:
     description: 프로젝트 기술 스택 태그 (ADR-0005)
   - name: similar-projects
     description: 유사 프로젝트 탐색 (ADR-0006)
+  - name: impact
+    description: 변경 영향 분석 — 후보 랭킹·이유·경로·신뢰도 (ADR-0008)
   - name: health
     description: 헬스체크 (Docker/오케스트레이터용, BENCHMARK.md 5.16)
 
@@ -362,6 +364,80 @@ paths:
                       relationshipCount: { type: integer }
                       maxDepthReached: { type: integer }
         '404': { $ref: '#/components/responses/EntityNotFound' }
+
+  /projects/{id}/entities/{encodedId}/impact:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/EncodedEntityId'
+    get:
+      tags: [impact]
+      summary: 변경 영향 후보 랭킹
+      description: |
+        서브그래프(direction=in)와 같은 그래프를 순회하되, 후보별 대표 경로 하나를
+        재구성해 confidence(경로 위 관계들의 confidence 곱) 내림차순으로 랭킹한다.
+        방향은 파라미터로 없다 — "impact"는 항상 direction=in을 뜻한다(ADR-0008 결정 3·4.1).
+      parameters:
+        - name: depth
+          in: query
+          schema: { type: integer, default: 3, minimum: 0, maximum: 5 }
+        - name: types
+          in: query
+          description: '기본값은 DECLARES를 제외한 4종(IMPORTS,CALLS,IMPLEMENTS,EXTENDS)'
+          schema: { type: string, example: 'CALLS,IMPORTS' }
+        - name: resolution
+          in: query
+          schema: { $ref: '#/components/schemas/Resolution' }
+        - name: maxCandidates
+          in: query
+          schema: { type: integer, default: 50, minimum: 1, maximum: 200 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImpactResult' }
+        '404': { $ref: '#/components/responses/EntityNotFound' }
+
+  /projects/{id}/analysis/runs/{runId}/changed-impact:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - name: runId
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [impact]
+      summary: Git diff 기반 변경 영향 랭킹
+      description: |
+        해당 run의 baseRevision~revision 사이 git diff를 조회 시점에 재계산해(저장하지
+        않음) 변경된 각 파일이 선언한 Entity마다 impact를 계산하고 합쳐 중복 제거한다.
+        baseRevision이 null인 run(최초 전체 분석)은 비교 대상이 없어 400을 반환한다
+        (ADR-0008 결정 4.2).
+      parameters:
+        - name: depth
+          in: query
+          schema: { type: integer, default: 3, minimum: 0, maximum: 5 }
+        - name: types
+          in: query
+          schema: { type: string, example: 'CALLS,IMPORTS' }
+        - name: resolution
+          in: query
+          schema: { $ref: '#/components/schemas/Resolution' }
+        - name: maxCandidates
+          in: query
+          schema: { type: integer, default: 50, minimum: 1, maximum: 200 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ChangedImpactResult' }
+        '400':
+          description: baseRevision이 없는 run(최초 전체 분석)이라 비교할 수 없음
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/RunNotFound' }
 
   /projects/{id}/analysis/runs:
     parameters:
@@ -773,6 +849,88 @@ components:
               relationship: { $ref: '#/components/schemas/Relationship' }
               counterpart: { $ref: '#/components/schemas/Entity' }
         total: { type: integer }
+
+    ImpactPathStep:
+      type: object
+      description: 후보 → root 방향 경로의 관계 한 hop. Relationship과 같은 필드를 쓰되 id는 없다(새 DTO를 만들지 않기로 한 ADR-0008 결정).
+      required: [sourceId, targetId, type, resolution, confidence, evidence]
+      properties:
+        sourceId: { type: string }
+        targetId: { type: string }
+        type: { $ref: '#/components/schemas/RelationshipType' }
+        resolution: { $ref: '#/components/schemas/Resolution' }
+        confidence: { type: number, format: float, minimum: 0, maximum: 1 }
+        evidence:
+          type: array
+          items: { $ref: '#/components/schemas/Evidence' }
+
+    ImpactCandidate:
+      type: object
+      required: [candidate, reason, confidence, hasInferredHop, path]
+      properties:
+        candidate: { type: string, description: 후보 Entity id }
+        reason:
+          type: string
+          example: 'createOrder가 charge를 호출합니다'
+          description: 후보에서 root 방향 첫 hop을 문장화. 2-hop 이상이면 "(경로 N단계)" 접미.
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: 경로 위 각 관계의 confidence를 곱한 값(새 필드를 발명하지 않음)
+        hasInferredHop: { type: boolean, description: 경로 중 하나라도 resolution=inferred면 true }
+        path:
+          type: array
+          description: 후보 → root 순
+          items: { $ref: '#/components/schemas/ImpactPathStep' }
+
+    ImpactResult:
+      type: object
+      properties:
+        rootId: { type: string }
+        candidates:
+          type: array
+          items: { $ref: '#/components/schemas/ImpactCandidate' }
+        truncated: { type: boolean }
+        stats:
+          type: object
+          properties:
+            candidateCount: { type: integer }
+            maxDepthReached: { type: integer }
+
+    ChangedImpactCandidate:
+      allOf:
+        - $ref: '#/components/schemas/ImpactCandidate'
+        - type: object
+          required: [changedEntityId, isDirectImpact, isLikelyTestFile]
+          properties:
+            changedEntityId: { type: string, description: 이 후보가 어느 변경된 Entity 때문에 발견됐는지 }
+            isDirectImpact: { type: boolean, description: 변경된 Entity를 한 hop(depth 1)으로 바로 참조하는가 }
+            isLikelyTestFile:
+              type: boolean
+              description: |
+                후보 filePath가 *.test.ts/*.spec.ts 패턴이거나 test/tests/__tests__ 아래에 있는지의
+                경로 패턴 휴리스틱이다 — 구조적 관계(TESTS Relationship Type)가 아니므로 100% 정확하지
+                않다(ADR-0008 결정 4.2).
+
+    ChangedImpactResult:
+      type: object
+      properties:
+        runId: { type: string }
+        changedEntities:
+          type: array
+          items: { type: string }
+          description: 변경된 Entity id 목록(파일 자체는 제외)
+        candidates:
+          type: array
+          items: { $ref: '#/components/schemas/ChangedImpactCandidate' }
+        truncated: { type: boolean }
+        stats:
+          type: object
+          properties:
+            changedEntityCount: { type: integer }
+            candidateCount: { type: integer }
 
     Project:
       type: object

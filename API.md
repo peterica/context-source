@@ -238,6 +238,51 @@ GET /projects/{id}/similar?limit=10
 - `limit`은 1~50, 기본 10.
 - "기술 스택 기반 검색"은 별도 endpoint 없이 `GET /projects` 응답에 이미 포함된 `techStack`을 Web UI가 클라이언트에서 필터링한다(ADR-0006 §3).
 
+### 2.10 변경 영향 분석 — ADR-0008 (Phase 2)
+
+`GET /entities/{id}/subgraph?direction=in`(2.5)이 그래프만 줄 뿐 "가장 확실하고 가까운 후보가 뭔지", "왜 영향을 받는지"는 답하지 않는다는 갭(BENCHMARK.md 5.1~5.3)을 메운다. 새 Relationship Type이나 범용 Path Query 언어는 추가하지 않으며, 기존 5개 관계 타입 위에 후보 랭킹·이유·경로·신뢰도를 얹은 조회다(ADR-0008 결정 1·2·4).
+
+```
+GET /projects/{id}/entities/{encodedId}/impact?depth=3&types=&resolution=&maxCandidates=50
+```
+
+- 방향은 파라미터로 노출하지 않는다 — "impact"는 항상 `direction=in`("누가 나에게 의존하는가")을 뜻한다. 정방향이 필요하면 2.5의 `direction=out`을 쓴다.
+- `depth` 기본 3, 최대 5. `types` 기본값은 `DECLARES`를 제외한 4종(`IMPORTS,CALLS,IMPLEMENTS,EXTENDS`) — 명시하면 덮어쓴다. `maxCandidates` 기본 50, 최대 200.
+- 응답:
+
+```jsonc
+{
+  "rootId": "p1/sym:src/payment/service.ts#PaymentService.charge",
+  "candidates": [
+    {
+      "candidate": "p1/sym:src/api/handler.ts#createOrder",
+      "reason": "createOrder가 charge를 호출합니다",       // 2-hop 이상이면 " (경로 N단계)" 접미
+      "confidence": 1.0,        // 경로 위 각 관계의 confidence를 곱한 값(새 필드를 만들지 않음)
+      "hasInferredHop": false,  // 경로 중 하나라도 inferred면 true
+      "path": [ { "sourceId", "targetId", "type", "resolution", "confidence", "evidence": [Evidence] } ]  // 후보 → root 순, 기존 Relationship DTO 필드 재사용
+    }
+  ],
+  "truncated": false,
+  "stats": { "candidateCount": 1, "maxDepthReached": 1 }
+}
+```
+
+- 정렬(랭킹): `confidence` 내림차순 → 경로 길이(hop 수) 오름차순 → `candidate` id 오름차순(결정적). `maxCandidates`로 자르기 전에 정렬한다.
+
+```
+GET /projects/{id}/analysis/runs/{runId}/changed-impact?depth=3&types=&resolution=&maxCandidates=100
+```
+
+- 해당 run의 `baseRevision`~`revision` 사이 git diff를 **조회 시점에 재계산**한다(저장하지 않음 — Query-first, 2.6의 incremental이 이미 쓰는 `diffNameStatus`/`resolveGitRoot` 재사용). `baseRevision`이 `null`인 run(최초 전체 분석)은 비교 대상이 없으므로 `400 INVALID_PARAM`.
+- 변경된 각 파일이 선언한 Entity(파일 자체는 제외)를 "변경된 Entity"로 삼아 각각 위 impact를 계산하고, 후보를 합쳐 중복 제거한다(같은 후보가 여러 변경 Entity에서 도달되면 confidence가 더 높은 쪽, 동률이면 경로가 더 짧은 쪽이 남는다).
+- 응답은 위 `candidates` 배열에 세 필드를 더한 것 — 새 DTO를 만들지 않는다:
+  - `changedEntityId` — 이 후보가 어느 변경된 Entity 때문에 발견됐는지.
+  - `isDirectImpact` — 변경된 Entity를 한 hop(depth 1)으로 바로 참조하는가.
+  - `isLikelyTestFile` — 후보의 `filePath`가 `*.test.ts`/`*.spec.ts` 패턴이거나 `test/`·`tests/`·`__tests__/` 아래에 있는지의 **경로 패턴 휴리스틱**이다. 구조적 관계(`TESTS` Relationship Type)가 아니므로 100% 정확하지 않다(ADR-0008 결정 4.2) — 새 Relationship Type을 만들지 않기로 한 결정 1과 일관되게, 필드 이름도 단정적으로 짓지 않았다.
+- 응답 최상위에 `runId`, `changedEntities`(변경된 Entity id 목록)를 포함한다.
+
+Web UI는 이 두 endpoint를 "변경 영향" 탭에서 쓴다 — 최신 완료 run을 기본으로, `isDirectImpact`(직접 영향) → 나머지(간접 영향) → `isLikelyTestFile`(관련 테스트로 보이는 파일) 순서로 그룹핑해 보여준다(ADR-0008 결정 5, BENCHMARK.md 5.3의 검토 순서). MCP tool로는 아직 노출하지 않는다(ADR-0008 "하지 않는 것").
+
 ---
 
 ## 3. MCP Tools — FR-Q7, FR-AI1, FR-AI3

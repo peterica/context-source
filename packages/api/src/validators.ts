@@ -44,8 +44,12 @@ export function parseOffset(raw: unknown): number {
   return parseIntParam(raw, 'offset', 0, 0, Number.MAX_SAFE_INTEGER);
 }
 
-export function parseDepth(raw: unknown): number {
-  return parseIntParam(raw, 'depth', 2, 0, 5);
+export function parseDepth(raw: unknown, def = 2): number {
+  return parseIntParam(raw, 'depth', def, 0, 5);
+}
+
+export function parseMaxCandidates(raw: unknown): number {
+  return parseIntParam(raw, 'maxCandidates', 50, 1, 200);
 }
 
 export function parseMaxNodes(raw: unknown): number {

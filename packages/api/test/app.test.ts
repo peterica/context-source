@@ -311,6 +311,61 @@ describe('2.5 GET /projects/{id}/entities/{encodedId}/subgraph', () => {
   });
 });
 
+describe('GET /projects/{id}/entities/{encodedId}/impact (ADR-0008)', () => {
+  it('ranks callers as impact candidates with a reason, path, and confidence', async () => {
+    const id = symbolEntityId(PROJECT, 'src/math.ts', 'identity');
+    const { status, body } = await getJson(
+      `/projects/${PROJECT}/entities/${encodeEntityId(id)}/impact`,
+    );
+    expect(status).toBe(200);
+    expect(body.rootId).toBe(id);
+    const run = body.candidates.find((c: any) => c.candidate.endsWith('#run'));
+    expect(run).toBeDefined();
+    expect(run.confidence).toBe(1);
+    expect(run.hasInferredHop).toBe(false);
+    expect(typeof run.reason).toBe('string');
+    expect(run.reason.length).toBeGreaterThan(0);
+    expect(run.path).toHaveLength(1);
+    expect(run.path[0].type).toBe('CALLS');
+    expect(run.path[0].evidence.length).toBeGreaterThan(0);
+  });
+
+  it('defaults to depth=3 (deeper than the subgraph endpoint default of 2)', async () => {
+    const id = symbolEntityId(PROJECT, 'src/math.ts', 'identity');
+    const { status, body } = await getJson(
+      `/projects/${PROJECT}/entities/${encodeEntityId(id)}/impact`,
+    );
+    expect(status).toBe(200);
+    expect(body.stats.maxDepthReached).toBeLessThanOrEqual(3);
+  });
+
+  it('honors maxCandidates and reports truncated', async () => {
+    const id = symbolEntityId(PROJECT, 'src/math.ts', 'identity');
+    const { status, body } = await getJson(
+      `/projects/${PROJECT}/entities/${encodeEntityId(id)}/impact?maxCandidates=1`,
+    );
+    expect(status).toBe(200);
+    expect(body.candidates.length).toBeLessThanOrEqual(1);
+  });
+
+  it('rejects depth beyond the documented max (5)', async () => {
+    const id = symbolEntityId(PROJECT, 'src/math.ts', 'identity');
+    const { status, body } = await getJson(
+      `/projects/${PROJECT}/entities/${encodeEntityId(id)}/impact?depth=6`,
+    );
+    expect(status).toBe(400);
+    expect(body.error.code).toBe('INVALID_PARAM');
+  });
+
+  it('returns 404 for an unknown entity', async () => {
+    const { status, body } = await getJson(
+      `/projects/${PROJECT}/entities/${encodeEntityId('p1/sym:nope.ts#nope')}/impact`,
+    );
+    expect(status).toBe(404);
+    expect(body.error.code).toBe('ENTITY_NOT_FOUND');
+  });
+});
+
 describe('2.6 POST /projects/{id}/analysis/runs (full mode)', () => {
   it('triggers a full analysis run and it becomes queryable', async () => {
     const res = await fetch(`${baseUrl}/projects/${PROJECT}/analysis/runs`, {

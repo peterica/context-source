@@ -2,6 +2,7 @@ import * as path from 'node:path';
 import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 import {
   addTechStackEntry,
+  computeImpact,
   createProject,
   deleteProject,
   detectTechStack,
@@ -42,6 +43,7 @@ import {
   parseDirection,
   parseKind,
   parseLimit,
+  parseMaxCandidates,
   parseMaxNodes,
   parseOffset,
   parseOptionalString,
@@ -294,6 +296,23 @@ export function createApp(ctx: AppContext): Express {
         resolution: parseResolution(req.query.resolution),
         maxNodes: parseMaxNodes(req.query.maxNodes),
         includeSnippets: parseBoolean(req.query.includeSnippets, true),
+      });
+      res.json(result);
+    }),
+  );
+
+  // 변경 영향 분석 — ADR-0008 (BENCHMARK.md 5.1/5.2)
+  projectRouter.get(
+    '/entities/:encodedId/impact',
+    asyncHandler((req, res) => {
+      const project = requireProject(ctx.db, req.params.projectId!);
+      const entity = requireEntity(ctx.db, project.id, req.params.encodedId!);
+      const result = computeImpact(ctx.db, {
+        rootId: entity.id,
+        depth: parseDepth(req.query.depth, 3),
+        types: parseTypes(req.query.types),
+        resolution: parseResolution(req.query.resolution),
+        maxCandidates: parseMaxCandidates(req.query.maxCandidates),
       });
       res.json(result);
     }),

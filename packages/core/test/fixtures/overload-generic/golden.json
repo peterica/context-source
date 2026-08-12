@@ -1,0 +1,270 @@
+{
+  "entities": [
+    {
+      "id": "p1/file:src/math.ts",
+      "kind": "file",
+      "name": "math.ts",
+      "filePath": "src/math.ts",
+      "range": {
+        "startLine": 1,
+        "endLine": 14
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/file:src/usage.ts",
+      "kind": "file",
+      "name": "usage.ts",
+      "filePath": "src/usage.ts",
+      "range": {
+        "startLine": 1,
+        "endLine": 9
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/math.ts#Box",
+      "kind": "class",
+      "name": "Box",
+      "filePath": "src/math.ts",
+      "range": {
+        "startLine": 7,
+        "endLine": 13
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/math.ts#Box.get",
+      "kind": "method",
+      "name": "get",
+      "filePath": "src/math.ts",
+      "range": {
+        "startLine": 10,
+        "endLine": 12
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/math.ts#identity",
+      "kind": "function",
+      "name": "identity",
+      "filePath": "src/math.ts",
+      "range": {
+        "startLine": 3,
+        "endLine": 5
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/usage.ts#run",
+      "kind": "function",
+      "name": "run",
+      "filePath": "src/usage.ts",
+      "range": {
+        "startLine": 3,
+        "endLine": 8
+      },
+      "revision": "rev1"
+    }
+  ],
+  "relationships": [
+    {
+      "id": "r-1de78832b874",
+      "type": "DECLARES",
+      "sourceId": "p1/file:src/math.ts",
+      "targetId": "p1/sym:src/math.ts#Box",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-35bc53c1775b",
+          "filePath": "src/math.ts",
+          "range": {
+            "startLine": 7,
+            "startCol": 14,
+            "endLine": 7,
+            "endCol": 17
+          },
+          "snippet": "Box",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-30e29f7106e8",
+      "type": "DECLARES",
+      "sourceId": "p1/file:src/usage.ts",
+      "targetId": "p1/sym:src/usage.ts#run",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-0a62a5b7c2f8",
+          "filePath": "src/usage.ts",
+          "range": {
+            "startLine": 3,
+            "startCol": 17,
+            "endLine": 3,
+            "endCol": 20
+          },
+          "snippet": "run",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-46cfd9a1bdf3",
+      "type": "CALLS",
+      "sourceId": "p1/sym:src/usage.ts#run",
+      "targetId": "p1/sym:src/math.ts#Box.get",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-63c244823320",
+          "filePath": "src/usage.ts",
+          "range": {
+            "startLine": 7,
+            "startCol": 3,
+            "endLine": 7,
+            "endCol": 11
+          },
+          "snippet": "b.get(0)",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-69858bf7a8b0",
+      "type": "IMPORTS",
+      "sourceId": "p1/file:src/usage.ts",
+      "targetId": "p1/file:src/math.ts",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-a2ebcdd1bd16",
+          "filePath": "src/usage.ts",
+          "range": {
+            "startLine": 1,
+            "startCol": 1,
+            "endLine": 1,
+            "endCol": 40
+          },
+          "snippet": "import { identity, Box } from './math';",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-991837be7491",
+      "type": "DECLARES",
+      "sourceId": "p1/file:src/math.ts",
+      "targetId": "p1/sym:src/math.ts#identity",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-2a57cba0d204",
+          "filePath": "src/math.ts",
+          "range": {
+            "startLine": 3,
+            "startCol": 17,
+            "endLine": 3,
+            "endCol": 25
+          },
+          "snippet": "identity",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-bebc767f86c3",
+      "type": "DECLARES",
+      "sourceId": "p1/sym:src/math.ts#Box",
+      "targetId": "p1/sym:src/math.ts#Box.get",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-6ced51ab874f",
+          "filePath": "src/math.ts",
+          "range": {
+            "startLine": 10,
+            "startCol": 3,
+            "endLine": 10,
+            "endCol": 6
+          },
+          "snippet": "get",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-d51ed7ebea14",
+      "type": "CALLS",
+      "sourceId": "p1/sym:src/usage.ts#run",
+      "targetId": "p1/sym:src/math.ts#identity",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-6f9487650ce9",
+          "filePath": "src/usage.ts",
+          "range": {
+            "startLine": 5,
+            "startCol": 3,
+            "endLine": 5,
+            "endCol": 16
+          },
+          "snippet": "identity('a')",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        },
+        {
+          "id": "e-e2381676dde2",
+          "filePath": "src/usage.ts",
+          "range": {
+            "startLine": 4,
+            "startCol": 3,
+            "endLine": 4,
+            "endCol": 14
+          },
+          "snippet": "identity(1)",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-d68bcfafaf00",
+      "type": "CALLS",
+      "sourceId": "p1/sym:src/usage.ts#run",
+      "targetId": "p1/sym:src/math.ts#Box",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-b3cd85d46fe8",
+          "filePath": "src/usage.ts",
+          "range": {
+            "startLine": 6,
+            "startCol": 13,
+            "endLine": 6,
+            "endCol": 30
+          },
+          "snippet": "new Box<number>()",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    }
+  ],
+  "failures": []
+}

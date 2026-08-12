@@ -267,6 +267,52 @@ describe('callback and higher-order function', () => {
   });
 });
 
+describe('dependency injection (constructor-injected interface)', () => {
+  const result = analyzeProject({
+    tsconfigPath: fixtureTsconfig('dependency-injection'),
+    projectId: PROJECT,
+    revision: REV,
+  });
+
+  it('has no failures', () => {
+    expect(result.failures).toEqual([]);
+  });
+
+  it('ConsoleLogger IMPLEMENTS Logger (static)', () => {
+    const consoleLogger = symbolEntityId(PROJECT, 'src/console-logger.ts', 'ConsoleLogger');
+    const logger = symbolEntityId(PROJECT, 'src/logger.ts', 'Logger');
+    const rel = findRel(result.relationships, 'IMPLEMENTS', consoleLogger, logger);
+    expect(rel).toBeDefined();
+    expect(rel?.resolution).toBe('static');
+  });
+
+  it('run CALLS OrderService and ConsoleLogger via `new` (static)', () => {
+    const run = symbolEntityId(PROJECT, 'src/main.ts', 'run');
+    const orderService = symbolEntityId(PROJECT, 'src/order-service.ts', 'OrderService');
+    const consoleLogger = symbolEntityId(PROJECT, 'src/console-logger.ts', 'ConsoleLogger');
+    expect(findRel(result.relationships, 'CALLS', run, orderService)?.resolution).toBe('static');
+    expect(findRel(result.relationships, 'CALLS', run, consoleLogger)?.resolution).toBe('static');
+  });
+
+  it('run CALLS OrderService.placeOrder directly on the concretely-typed instance (static)', () => {
+    const run = symbolEntityId(PROJECT, 'src/main.ts', 'run');
+    const placeOrder = symbolEntityId(PROJECT, 'src/order-service.ts', 'OrderService.placeOrder');
+    const rel = findRel(result.relationships, 'CALLS', run, placeOrder);
+    expect(rel).toBeDefined();
+    expect(rel?.resolution).toBe('static');
+  });
+
+  it('known limitation: does NOT create a CALLS relationship for a call through a constructor-injected interface field (IMPLEMENTATION_REPORT.md §10)', () => {
+    // OrderService.placeOrder는 this.logger.log(...)를 호출하지만, logger는 인터페이스
+    // Logger 타입으로 주입되고 인터페이스 멤버는 Entity로 추출되지 않는다(ADR-0002 §2) —
+    // 그래서 대상을 특정할 수 없어 CALLS 관계 자체가 생성되지 않는다(false positive를
+    // 만들지 않기 위한 의도적 설계, 다만 DI가 많은 코드베이스에서는 recall이 낮아짐).
+    const placeOrder = symbolEntityId(PROJECT, 'src/order-service.ts', 'OrderService.placeOrder');
+    const loggerLog = result.relationships.filter((r) => r.type === 'CALLS' && r.sourceId === placeOrder);
+    expect(loggerLog).toEqual([]);
+  });
+});
+
 describe('dynamic import and unresolvable calls', () => {
   const result = analyzeProject({
     tsconfigPath: fixtureTsconfig('dynamic-import'),

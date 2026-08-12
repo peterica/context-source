@@ -1,0 +1,234 @@
+{
+  "entities": [
+    {
+      "id": "p1/file:src/consumer.ts",
+      "kind": "file",
+      "name": "consumer.ts",
+      "filePath": "src/consumer.ts",
+      "range": {
+        "startLine": 1,
+        "endLine": 7
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/file:src/index.ts",
+      "kind": "file",
+      "name": "index.ts",
+      "filePath": "src/index.ts",
+      "range": {
+        "startLine": 1,
+        "endLine": 2
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/file:src/service.ts",
+      "kind": "file",
+      "name": "service.ts",
+      "filePath": "src/service.ts",
+      "range": {
+        "startLine": 1,
+        "endLine": 6
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/consumer.ts#run",
+      "kind": "function",
+      "name": "run",
+      "filePath": "src/consumer.ts",
+      "range": {
+        "startLine": 3,
+        "endLine": 6
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/service.ts#Greeter",
+      "kind": "class",
+      "name": "Greeter",
+      "filePath": "src/service.ts",
+      "range": {
+        "startLine": 1,
+        "endLine": 5
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/service.ts#Greeter.greet",
+      "kind": "method",
+      "name": "greet",
+      "filePath": "src/service.ts",
+      "range": {
+        "startLine": 2,
+        "endLine": 4
+      },
+      "revision": "rev1"
+    }
+  ],
+  "relationships": [
+    {
+      "id": "r-060e21524917",
+      "type": "CALLS",
+      "sourceId": "p1/sym:src/consumer.ts#run",
+      "targetId": "p1/sym:src/service.ts#Greeter",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-d51446c0fbbc",
+          "filePath": "src/consumer.ts",
+          "range": {
+            "startLine": 4,
+            "startCol": 13,
+            "endLine": 4,
+            "endCol": 26
+          },
+          "snippet": "new Greeter()",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-67384736053b",
+      "type": "IMPORTS",
+      "sourceId": "p1/file:src/consumer.ts",
+      "targetId": "p1/file:src/index.ts",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-5a9c13ce84e8",
+          "filePath": "src/consumer.ts",
+          "range": {
+            "startLine": 1,
+            "startCol": 1,
+            "endLine": 1,
+            "endCol": 35
+          },
+          "snippet": "import { Greeter } from './index';",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-6ff552278e42",
+      "type": "IMPORTS",
+      "sourceId": "p1/file:src/index.ts",
+      "targetId": "p1/file:src/service.ts",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-1f6ceb02a7a3",
+          "filePath": "src/index.ts",
+          "range": {
+            "startLine": 1,
+            "startCol": 1,
+            "endLine": 1,
+            "endCol": 37
+          },
+          "snippet": "export { Greeter } from './service';",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-740b33df264e",
+      "type": "DECLARES",
+      "sourceId": "p1/file:src/consumer.ts",
+      "targetId": "p1/sym:src/consumer.ts#run",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-bc8f06f962ec",
+          "filePath": "src/consumer.ts",
+          "range": {
+            "startLine": 3,
+            "startCol": 17,
+            "endLine": 3,
+            "endCol": 20
+          },
+          "snippet": "run",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-abea9feb799e",
+      "type": "DECLARES",
+      "sourceId": "p1/sym:src/service.ts#Greeter",
+      "targetId": "p1/sym:src/service.ts#Greeter.greet",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-e8551805bb1b",
+          "filePath": "src/service.ts",
+          "range": {
+            "startLine": 2,
+            "startCol": 3,
+            "endLine": 2,
+            "endCol": 8
+          },
+          "snippet": "greet",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-b2a1dd22cff9",
+      "type": "DECLARES",
+      "sourceId": "p1/file:src/service.ts",
+      "targetId": "p1/sym:src/service.ts#Greeter",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-4f68dad2e53a",
+          "filePath": "src/service.ts",
+          "range": {
+            "startLine": 1,
+            "startCol": 14,
+            "endLine": 1,
+            "endCol": 21
+          },
+          "snippet": "Greeter",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-e3c1ca6c677e",
+      "type": "CALLS",
+      "sourceId": "p1/sym:src/consumer.ts#run",
+      "targetId": "p1/sym:src/service.ts#Greeter.greet",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-a2ef996cd36b",
+          "filePath": "src/consumer.ts",
+          "range": {
+            "startLine": 5,
+            "startCol": 10,
+            "endLine": 5,
+            "endCol": 19
+          },
+          "snippet": "g.greet()",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    }
+  ],
+  "failures": []
+}

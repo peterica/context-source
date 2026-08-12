@@ -1,0 +1,57 @@
+{
+  "entities": [
+    {
+      "id": "p1/file:src/good.ts",
+      "kind": "file",
+      "name": "good.ts",
+      "filePath": "src/good.ts",
+      "range": {
+        "startLine": 1,
+        "endLine": 4
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/good.ts#ok",
+      "kind": "function",
+      "name": "ok",
+      "filePath": "src/good.ts",
+      "range": {
+        "startLine": 1,
+        "endLine": 3
+      },
+      "revision": "rev1"
+    }
+  ],
+  "relationships": [
+    {
+      "id": "r-d6c273c0ae5f",
+      "type": "DECLARES",
+      "sourceId": "p1/file:src/good.ts",
+      "targetId": "p1/sym:src/good.ts#ok",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-ae5e6723d4a6",
+          "filePath": "src/good.ts",
+          "range": {
+            "startLine": 1,
+            "startCol": 17,
+            "endLine": 1,
+            "endCol": 19
+          },
+          "snippet": "ok",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    }
+  ],
+  "failures": [
+    {
+      "filePath": "src/bad.ts",
+      "hasMessage": true
+    }
+  ]
+}

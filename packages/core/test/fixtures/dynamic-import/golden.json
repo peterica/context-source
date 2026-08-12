@@ -1,0 +1,154 @@
+{
+  "entities": [
+    {
+      "id": "p1/file:src/lazy.ts",
+      "kind": "file",
+      "name": "lazy.ts",
+      "filePath": "src/lazy.ts",
+      "range": {
+        "startLine": 1,
+        "endLine": 4
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/file:src/loader.ts",
+      "kind": "file",
+      "name": "loader.ts",
+      "filePath": "src/loader.ts",
+      "range": {
+        "startLine": 1,
+        "endLine": 9
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/lazy.ts#heavy",
+      "kind": "function",
+      "name": "heavy",
+      "filePath": "src/lazy.ts",
+      "range": {
+        "startLine": 1,
+        "endLine": 3
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/loader.ts#load",
+      "kind": "function",
+      "name": "load",
+      "filePath": "src/loader.ts",
+      "range": {
+        "startLine": 1,
+        "endLine": 3
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/loader.ts#loadDynamic",
+      "kind": "function",
+      "name": "loadDynamic",
+      "filePath": "src/loader.ts",
+      "range": {
+        "startLine": 5,
+        "endLine": 8
+      },
+      "revision": "rev1"
+    }
+  ],
+  "relationships": [
+    {
+      "id": "r-b3e465cb0a5c",
+      "type": "DECLARES",
+      "sourceId": "p1/file:src/loader.ts",
+      "targetId": "p1/sym:src/loader.ts#load",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-73bd6530fab0",
+          "filePath": "src/loader.ts",
+          "range": {
+            "startLine": 1,
+            "startCol": 23,
+            "endLine": 1,
+            "endCol": 27
+          },
+          "snippet": "load",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-b3eec4f68253",
+      "type": "DECLARES",
+      "sourceId": "p1/file:src/lazy.ts",
+      "targetId": "p1/sym:src/lazy.ts#heavy",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-90ccf7716be1",
+          "filePath": "src/lazy.ts",
+          "range": {
+            "startLine": 1,
+            "startCol": 17,
+            "endLine": 1,
+            "endCol": 22
+          },
+          "snippet": "heavy",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-e1e4576a0c1c",
+      "type": "IMPORTS",
+      "sourceId": "p1/file:src/loader.ts",
+      "targetId": "p1/file:src/lazy.ts",
+      "resolution": "inferred",
+      "confidence": 0.6,
+      "evidence": [
+        {
+          "id": "e-941b8fb0140f",
+          "filePath": "src/loader.ts",
+          "range": {
+            "startLine": 2,
+            "startCol": 10,
+            "endLine": 2,
+            "endCol": 26
+          },
+          "snippet": "import('./lazy')",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-f2c386724962",
+      "type": "DECLARES",
+      "sourceId": "p1/file:src/loader.ts",
+      "targetId": "p1/sym:src/loader.ts#loadDynamic",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-d93038848b31",
+          "filePath": "src/loader.ts",
+          "range": {
+            "startLine": 5,
+            "startCol": 23,
+            "endLine": 5,
+            "endCol": 34
+          },
+          "snippet": "loadDynamic",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    }
+  ],
+  "failures": []
+}

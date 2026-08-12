@@ -1,0 +1,439 @@
+{
+  "entities": [
+    {
+      "id": "p1/file:src/console-logger.ts",
+      "kind": "file",
+      "name": "console-logger.ts",
+      "filePath": "src/console-logger.ts",
+      "range": {
+        "startLine": 1,
+        "endLine": 8
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/file:src/logger.ts",
+      "kind": "file",
+      "name": "logger.ts",
+      "filePath": "src/logger.ts",
+      "range": {
+        "startLine": 1,
+        "endLine": 4
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/file:src/main.ts",
+      "kind": "file",
+      "name": "main.ts",
+      "filePath": "src/main.ts",
+      "range": {
+        "startLine": 1,
+        "endLine": 8
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/file:src/order-service.ts",
+      "kind": "file",
+      "name": "order-service.ts",
+      "filePath": "src/order-service.ts",
+      "range": {
+        "startLine": 1,
+        "endLine": 10
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/console-logger.ts#ConsoleLogger",
+      "kind": "class",
+      "name": "ConsoleLogger",
+      "filePath": "src/console-logger.ts",
+      "range": {
+        "startLine": 3,
+        "endLine": 7
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/console-logger.ts#ConsoleLogger.log",
+      "kind": "method",
+      "name": "log",
+      "filePath": "src/console-logger.ts",
+      "range": {
+        "startLine": 4,
+        "endLine": 6
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/logger.ts#Logger",
+      "kind": "interface",
+      "name": "Logger",
+      "filePath": "src/logger.ts",
+      "range": {
+        "startLine": 1,
+        "endLine": 3
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/main.ts#run",
+      "kind": "function",
+      "name": "run",
+      "filePath": "src/main.ts",
+      "range": {
+        "startLine": 4,
+        "endLine": 7
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/order-service.ts#OrderService",
+      "kind": "class",
+      "name": "OrderService",
+      "filePath": "src/order-service.ts",
+      "range": {
+        "startLine": 3,
+        "endLine": 9
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/order-service.ts#OrderService.placeOrder",
+      "kind": "method",
+      "name": "placeOrder",
+      "filePath": "src/order-service.ts",
+      "range": {
+        "startLine": 6,
+        "endLine": 8
+      },
+      "revision": "rev1"
+    }
+  ],
+  "relationships": [
+    {
+      "id": "r-147d2560ae0c",
+      "type": "CALLS",
+      "sourceId": "p1/sym:src/main.ts#run",
+      "targetId": "p1/sym:src/console-logger.ts#ConsoleLogger",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-dc1aa8cc8f51",
+          "filePath": "src/main.ts",
+          "range": {
+            "startLine": 5,
+            "startCol": 36,
+            "endLine": 5,
+            "endCol": 55
+          },
+          "snippet": "new ConsoleLogger()",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-213ad1acec0d",
+      "type": "IMPLEMENTS",
+      "sourceId": "p1/sym:src/console-logger.ts#ConsoleLogger",
+      "targetId": "p1/sym:src/logger.ts#Logger",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-8f40ae3449a2",
+          "filePath": "src/console-logger.ts",
+          "range": {
+            "startLine": 3,
+            "startCol": 39,
+            "endLine": 3,
+            "endCol": 45
+          },
+          "snippet": "Logger",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-2a100518f8ef",
+      "type": "DECLARES",
+      "sourceId": "p1/file:src/main.ts",
+      "targetId": "p1/sym:src/main.ts#run",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-4bd2a399b9b5",
+          "filePath": "src/main.ts",
+          "range": {
+            "startLine": 4,
+            "startCol": 17,
+            "endLine": 4,
+            "endCol": 20
+          },
+          "snippet": "run",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-2b890337c967",
+      "type": "DECLARES",
+      "sourceId": "p1/file:src/console-logger.ts",
+      "targetId": "p1/sym:src/console-logger.ts#ConsoleLogger",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-9a45748b358a",
+          "filePath": "src/console-logger.ts",
+          "range": {
+            "startLine": 3,
+            "startCol": 14,
+            "endLine": 3,
+            "endCol": 27
+          },
+          "snippet": "ConsoleLogger",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-596cb7aabb89",
+      "type": "IMPORTS",
+      "sourceId": "p1/file:src/main.ts",
+      "targetId": "p1/file:src/order-service.ts",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-7b59b5e754aa",
+          "filePath": "src/main.ts",
+          "range": {
+            "startLine": 2,
+            "startCol": 1,
+            "endLine": 2,
+            "endCol": 48
+          },
+          "snippet": "import { OrderService } from './order-service';",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-597ac2cbca66",
+      "type": "IMPORTS",
+      "sourceId": "p1/file:src/main.ts",
+      "targetId": "p1/file:src/console-logger.ts",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-461368a1108e",
+          "filePath": "src/main.ts",
+          "range": {
+            "startLine": 1,
+            "startCol": 1,
+            "endLine": 1,
+            "endCol": 50
+          },
+          "snippet": "import { ConsoleLogger } from './console-logger';",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-786919a64c37",
+      "type": "CALLS",
+      "sourceId": "p1/sym:src/main.ts#run",
+      "targetId": "p1/sym:src/order-service.ts#OrderService.placeOrder",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-bd20472cfc4e",
+          "filePath": "src/main.ts",
+          "range": {
+            "startLine": 6,
+            "startCol": 3,
+            "endLine": 6,
+            "endCol": 23
+          },
+          "snippet": "service.placeOrder()",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-83faa8c3c183",
+      "type": "IMPORTS",
+      "sourceId": "p1/file:src/console-logger.ts",
+      "targetId": "p1/file:src/logger.ts",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-83d645c1fc6b",
+          "filePath": "src/console-logger.ts",
+          "range": {
+            "startLine": 1,
+            "startCol": 1,
+            "endLine": 1,
+            "endCol": 35
+          },
+          "snippet": "import { Logger } from './logger';",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-a193189b91e4",
+      "type": "DECLARES",
+      "sourceId": "p1/sym:src/order-service.ts#OrderService",
+      "targetId": "p1/sym:src/order-service.ts#OrderService.placeOrder",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-9f86a6e26c13",
+          "filePath": "src/order-service.ts",
+          "range": {
+            "startLine": 6,
+            "startCol": 3,
+            "endLine": 6,
+            "endCol": 13
+          },
+          "snippet": "placeOrder",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-c26a4b4b07a4",
+      "type": "DECLARES",
+      "sourceId": "p1/file:src/order-service.ts",
+      "targetId": "p1/sym:src/order-service.ts#OrderService",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-1810d2011187",
+          "filePath": "src/order-service.ts",
+          "range": {
+            "startLine": 3,
+            "startCol": 14,
+            "endLine": 3,
+            "endCol": 26
+          },
+          "snippet": "OrderService",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-dcf9eeee34fd",
+      "type": "IMPORTS",
+      "sourceId": "p1/file:src/order-service.ts",
+      "targetId": "p1/file:src/logger.ts",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-70e8327afda6",
+          "filePath": "src/order-service.ts",
+          "range": {
+            "startLine": 1,
+            "startCol": 1,
+            "endLine": 1,
+            "endCol": 35
+          },
+          "snippet": "import { Logger } from './logger';",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-ee60c081e6ba",
+      "type": "CALLS",
+      "sourceId": "p1/sym:src/main.ts#run",
+      "targetId": "p1/sym:src/order-service.ts#OrderService",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-b5ec51f5fa66",
+          "filePath": "src/main.ts",
+          "range": {
+            "startLine": 5,
+            "startCol": 19,
+            "endLine": 5,
+            "endCol": 56
+          },
+          "snippet": "new OrderService(new ConsoleLogger())",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-f10ba2fa52e4",
+      "type": "DECLARES",
+      "sourceId": "p1/file:src/logger.ts",
+      "targetId": "p1/sym:src/logger.ts#Logger",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-a4f0a2f8687f",
+          "filePath": "src/logger.ts",
+          "range": {
+            "startLine": 1,
+            "startCol": 18,
+            "endLine": 1,
+            "endCol": 24
+          },
+          "snippet": "Logger",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-f40ab6e301e0",
+      "type": "DECLARES",
+      "sourceId": "p1/sym:src/console-logger.ts#ConsoleLogger",
+      "targetId": "p1/sym:src/console-logger.ts#ConsoleLogger.log",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-787af9d7ceac",
+          "filePath": "src/console-logger.ts",
+          "range": {
+            "startLine": 4,
+            "startCol": 3,
+            "endLine": 4,
+            "endCol": 6
+          },
+          "snippet": "log",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    }
+  ],
+  "failures": []
+}

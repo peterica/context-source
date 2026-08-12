@@ -1,0 +1,143 @@
+{
+  "entities": [
+    {
+      "id": "p1/file:src/a.ts",
+      "kind": "file",
+      "name": "a.ts",
+      "filePath": "src/a.ts",
+      "range": {
+        "startLine": 1,
+        "endLine": 4
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/file:src/b.ts",
+      "kind": "file",
+      "name": "b.ts",
+      "filePath": "src/b.ts",
+      "range": {
+        "startLine": 1,
+        "endLine": 6
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/a.ts#foo",
+      "kind": "function",
+      "name": "foo",
+      "filePath": "src/a.ts",
+      "range": {
+        "startLine": 1,
+        "endLine": 3
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/b.ts#useFoo",
+      "kind": "function",
+      "name": "useFoo",
+      "filePath": "src/b.ts",
+      "range": {
+        "startLine": 3,
+        "endLine": 5
+      },
+      "revision": "rev1"
+    }
+  ],
+  "relationships": [
+    {
+      "id": "r-6c009fb1ee0f",
+      "type": "CALLS",
+      "sourceId": "p1/sym:src/b.ts#useFoo",
+      "targetId": "p1/sym:src/a.ts#foo",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-1e24f294fcb5",
+          "filePath": "src/b.ts",
+          "range": {
+            "startLine": 4,
+            "startCol": 10,
+            "endLine": 4,
+            "endCol": 15
+          },
+          "snippet": "bar()",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-6c458dc0a225",
+      "type": "DECLARES",
+      "sourceId": "p1/file:src/b.ts",
+      "targetId": "p1/sym:src/b.ts#useFoo",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-6eef6b32b8b6",
+          "filePath": "src/b.ts",
+          "range": {
+            "startLine": 3,
+            "startCol": 17,
+            "endLine": 3,
+            "endCol": 23
+          },
+          "snippet": "useFoo",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-c9cf14bcbb2a",
+      "type": "DECLARES",
+      "sourceId": "p1/file:src/a.ts",
+      "targetId": "p1/sym:src/a.ts#foo",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-038804841fc5",
+          "filePath": "src/a.ts",
+          "range": {
+            "startLine": 1,
+            "startCol": 17,
+            "endLine": 1,
+            "endCol": 20
+          },
+          "snippet": "foo",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-e0bc3b9eaf8e",
+      "type": "IMPORTS",
+      "sourceId": "p1/file:src/b.ts",
+      "targetId": "p1/file:src/a.ts",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-acdc1974427f",
+          "filePath": "src/b.ts",
+          "range": {
+            "startLine": 1,
+            "startCol": 1,
+            "endLine": 1,
+            "endCol": 34
+          },
+          "snippet": "import { foo as bar } from './a';",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    }
+  ],
+  "failures": []
+}

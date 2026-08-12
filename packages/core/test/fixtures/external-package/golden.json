@@ -1,0 +1,83 @@
+{
+  "entities": [
+    {
+      "id": "p1/ext:left-pad-like",
+      "kind": "external_module",
+      "name": "left-pad-like",
+      "filePath": null,
+      "range": null,
+      "revision": null
+    },
+    {
+      "id": "p1/file:src/consumer.ts",
+      "kind": "file",
+      "name": "consumer.ts",
+      "filePath": "src/consumer.ts",
+      "range": {
+        "startLine": 1,
+        "endLine": 6
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/consumer.ts#run",
+      "kind": "function",
+      "name": "run",
+      "filePath": "src/consumer.ts",
+      "range": {
+        "startLine": 3,
+        "endLine": 5
+      },
+      "revision": "rev1"
+    }
+  ],
+  "relationships": [
+    {
+      "id": "r-3ed48dc2a046",
+      "type": "IMPORTS",
+      "sourceId": "p1/file:src/consumer.ts",
+      "targetId": "p1/ext:left-pad-like",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-8c8462750f2c",
+          "filePath": "src/consumer.ts",
+          "range": {
+            "startLine": 1,
+            "startCol": 1,
+            "endLine": 1,
+            "endCol": 37
+          },
+          "snippet": "import { pad } from 'left-pad-like';",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-740b33df264e",
+      "type": "DECLARES",
+      "sourceId": "p1/file:src/consumer.ts",
+      "targetId": "p1/sym:src/consumer.ts#run",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-bc8f06f962ec",
+          "filePath": "src/consumer.ts",
+          "range": {
+            "startLine": 3,
+            "startCol": 17,
+            "endLine": 3,
+            "endCol": 20
+          },
+          "snippet": "run",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    }
+  ],
+  "failures": []
+}

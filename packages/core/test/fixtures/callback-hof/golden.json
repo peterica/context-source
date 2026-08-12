@@ -1,0 +1,268 @@
+{
+  "entities": [
+    {
+      "id": "p1/file:src/handlers.ts",
+      "kind": "file",
+      "name": "handlers.ts",
+      "filePath": "src/handlers.ts",
+      "range": {
+        "startLine": 1,
+        "endLine": 22
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/file:src/wiring.ts",
+      "kind": "file",
+      "name": "wiring.ts",
+      "filePath": "src/wiring.ts",
+      "range": {
+        "startLine": 1,
+        "endLine": 6
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/handlers.ts#greet",
+      "kind": "function",
+      "name": "greet",
+      "filePath": "src/handlers.ts",
+      "range": {
+        "startLine": 12,
+        "endLine": 14
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/handlers.ts#invoke",
+      "kind": "function",
+      "name": "invoke",
+      "filePath": "src/handlers.ts",
+      "range": {
+        "startLine": 18,
+        "endLine": 21
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/handlers.ts#onClick",
+      "kind": "function",
+      "name": "onClick",
+      "filePath": "src/handlers.ts",
+      "range": {
+        "startLine": 1,
+        "endLine": 3
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/handlers.ts#registerHandler",
+      "kind": "function",
+      "name": "registerHandler",
+      "filePath": "src/handlers.ts",
+      "range": {
+        "startLine": 7,
+        "endLine": 10
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/wiring.ts#setup",
+      "kind": "function",
+      "name": "setup",
+      "filePath": "src/wiring.ts",
+      "range": {
+        "startLine": 3,
+        "endLine": 5
+      },
+      "revision": "rev1"
+    }
+  ],
+  "relationships": [
+    {
+      "id": "r-2ca24442f4a9",
+      "type": "CALLS",
+      "sourceId": "p1/sym:src/wiring.ts#setup",
+      "targetId": "p1/sym:src/handlers.ts#registerHandler",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-2e35d1c04557",
+          "filePath": "src/wiring.ts",
+          "range": {
+            "startLine": 4,
+            "startCol": 3,
+            "endLine": 4,
+            "endCol": 27
+          },
+          "snippet": "registerHandler(onClick)",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-5be56d04ce23",
+      "type": "CALLS",
+      "sourceId": "p1/sym:src/handlers.ts#invoke",
+      "targetId": "p1/sym:src/handlers.ts#greet",
+      "resolution": "inferred",
+      "confidence": 0.8,
+      "evidence": [
+        {
+          "id": "e-ae6a1ee0d365",
+          "filePath": "src/handlers.ts",
+          "range": {
+            "startLine": 20,
+            "startCol": 10,
+            "endLine": 20,
+            "endCol": 14
+          },
+          "snippet": "fn()",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-5f611a03f76d",
+      "type": "DECLARES",
+      "sourceId": "p1/file:src/handlers.ts",
+      "targetId": "p1/sym:src/handlers.ts#onClick",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-767d335c2a9d",
+          "filePath": "src/handlers.ts",
+          "range": {
+            "startLine": 1,
+            "startCol": 17,
+            "endLine": 1,
+            "endCol": 24
+          },
+          "snippet": "onClick",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-66857fe36bf7",
+      "type": "IMPORTS",
+      "sourceId": "p1/file:src/wiring.ts",
+      "targetId": "p1/file:src/handlers.ts",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-4e2a273b7423",
+          "filePath": "src/wiring.ts",
+          "range": {
+            "startLine": 1,
+            "startCol": 1,
+            "endLine": 1,
+            "endCol": 55
+          },
+          "snippet": "import { onClick, registerHandler } from './handlers';",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-7f5cde456312",
+      "type": "DECLARES",
+      "sourceId": "p1/file:src/wiring.ts",
+      "targetId": "p1/sym:src/wiring.ts#setup",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-b4b811e6d01a",
+          "filePath": "src/wiring.ts",
+          "range": {
+            "startLine": 3,
+            "startCol": 17,
+            "endLine": 3,
+            "endCol": 22
+          },
+          "snippet": "setup",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-c91ed115e908",
+      "type": "DECLARES",
+      "sourceId": "p1/file:src/handlers.ts",
+      "targetId": "p1/sym:src/handlers.ts#greet",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-487f194561bc",
+          "filePath": "src/handlers.ts",
+          "range": {
+            "startLine": 12,
+            "startCol": 17,
+            "endLine": 12,
+            "endCol": 22
+          },
+          "snippet": "greet",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-d502a3b67868",
+      "type": "DECLARES",
+      "sourceId": "p1/file:src/handlers.ts",
+      "targetId": "p1/sym:src/handlers.ts#registerHandler",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-7b3aa3ad61eb",
+          "filePath": "src/handlers.ts",
+          "range": {
+            "startLine": 7,
+            "startCol": 17,
+            "endLine": 7,
+            "endCol": 32
+          },
+          "snippet": "registerHandler",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-e5b734d62a69",
+      "type": "DECLARES",
+      "sourceId": "p1/file:src/handlers.ts",
+      "targetId": "p1/sym:src/handlers.ts#invoke",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-986583d4ffe5",
+          "filePath": "src/handlers.ts",
+          "range": {
+            "startLine": 18,
+            "startCol": 17,
+            "endLine": 18,
+            "endCol": 23
+          },
+          "snippet": "invoke",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    }
+  ],
+  "failures": []
+}

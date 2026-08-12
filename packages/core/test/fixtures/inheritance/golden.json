@@ -1,0 +1,291 @@
+{
+  "entities": [
+    {
+      "id": "p1/file:src/base.ts",
+      "kind": "file",
+      "name": "base.ts",
+      "filePath": "src/base.ts",
+      "range": {
+        "startLine": 1,
+        "endLine": 12
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/file:src/square.ts",
+      "kind": "file",
+      "name": "square.ts",
+      "filePath": "src/square.ts",
+      "range": {
+        "startLine": 1,
+        "endLine": 8
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/base.ts#BaseShape",
+      "kind": "class",
+      "name": "BaseShape",
+      "filePath": "src/base.ts",
+      "range": {
+        "startLine": 9,
+        "endLine": 11
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/base.ts#Colored",
+      "kind": "interface",
+      "name": "Colored",
+      "filePath": "src/base.ts",
+      "range": {
+        "startLine": 5,
+        "endLine": 7
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/base.ts#Shape",
+      "kind": "interface",
+      "name": "Shape",
+      "filePath": "src/base.ts",
+      "range": {
+        "startLine": 1,
+        "endLine": 3
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/square.ts#Square",
+      "kind": "class",
+      "name": "Square",
+      "filePath": "src/square.ts",
+      "range": {
+        "startLine": 3,
+        "endLine": 7
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/square.ts#Square.area",
+      "kind": "method",
+      "name": "area",
+      "filePath": "src/square.ts",
+      "range": {
+        "startLine": 4,
+        "endLine": 6
+      },
+      "revision": "rev1"
+    }
+  ],
+  "relationships": [
+    {
+      "id": "r-007477e0b51c",
+      "type": "EXTENDS",
+      "sourceId": "p1/sym:src/square.ts#Square",
+      "targetId": "p1/sym:src/base.ts#BaseShape",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-800f43057e74",
+          "filePath": "src/square.ts",
+          "range": {
+            "startLine": 3,
+            "startCol": 29,
+            "endLine": 3,
+            "endCol": 38
+          },
+          "snippet": "BaseShape",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-17206d0b543a",
+      "type": "DECLARES",
+      "sourceId": "p1/sym:src/square.ts#Square",
+      "targetId": "p1/sym:src/square.ts#Square.area",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-4ee5cdb259c6",
+          "filePath": "src/square.ts",
+          "range": {
+            "startLine": 4,
+            "startCol": 3,
+            "endLine": 4,
+            "endCol": 7
+          },
+          "snippet": "area",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-43c1078fb173",
+      "type": "DECLARES",
+      "sourceId": "p1/file:src/square.ts",
+      "targetId": "p1/sym:src/square.ts#Square",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-923ed6b027ce",
+          "filePath": "src/square.ts",
+          "range": {
+            "startLine": 3,
+            "startCol": 14,
+            "endLine": 3,
+            "endCol": 20
+          },
+          "snippet": "Square",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-6a1a960de2c4",
+      "type": "DECLARES",
+      "sourceId": "p1/file:src/base.ts",
+      "targetId": "p1/sym:src/base.ts#BaseShape",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-6506addd7860",
+          "filePath": "src/base.ts",
+          "range": {
+            "startLine": 9,
+            "startCol": 14,
+            "endLine": 9,
+            "endCol": 23
+          },
+          "snippet": "BaseShape",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-7ff4f09bc48a",
+      "type": "DECLARES",
+      "sourceId": "p1/file:src/base.ts",
+      "targetId": "p1/sym:src/base.ts#Colored",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-c0eb1795b483",
+          "filePath": "src/base.ts",
+          "range": {
+            "startLine": 5,
+            "startCol": 18,
+            "endLine": 5,
+            "endCol": 25
+          },
+          "snippet": "Colored",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-d3bdf7d13499",
+      "type": "EXTENDS",
+      "sourceId": "p1/sym:src/base.ts#Colored",
+      "targetId": "p1/sym:src/base.ts#Shape",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-cffaf8b65145",
+          "filePath": "src/base.ts",
+          "range": {
+            "startLine": 5,
+            "startCol": 34,
+            "endLine": 5,
+            "endCol": 39
+          },
+          "snippet": "Shape",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-ec949519841b",
+      "type": "DECLARES",
+      "sourceId": "p1/file:src/base.ts",
+      "targetId": "p1/sym:src/base.ts#Shape",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-15f62536d5a8",
+          "filePath": "src/base.ts",
+          "range": {
+            "startLine": 1,
+            "startCol": 18,
+            "endLine": 1,
+            "endCol": 23
+          },
+          "snippet": "Shape",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-f85e10e83f7b",
+      "type": "IMPORTS",
+      "sourceId": "p1/file:src/square.ts",
+      "targetId": "p1/file:src/base.ts",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-2fd089a4a65a",
+          "filePath": "src/square.ts",
+          "range": {
+            "startLine": 1,
+            "startCol": 1,
+            "endLine": 1,
+            "endCol": 43
+          },
+          "snippet": "import { Shape, BaseShape } from './base';",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-fb5eebbfbb42",
+      "type": "IMPLEMENTS",
+      "sourceId": "p1/sym:src/square.ts#Square",
+      "targetId": "p1/sym:src/base.ts#Shape",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-c511a1e33a83",
+          "filePath": "src/square.ts",
+          "range": {
+            "startLine": 3,
+            "startCol": 50,
+            "endLine": 3,
+            "endCol": 55
+          },
+          "snippet": "Shape",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    }
+  ],
+  "failures": []
+}

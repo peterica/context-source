@@ -1,0 +1,393 @@
+{
+  "entities": [
+    {
+      "id": "p1/file:src/index.ts",
+      "kind": "file",
+      "name": "index.ts",
+      "filePath": "src/index.ts",
+      "range": {
+        "startLine": 1,
+        "endLine": 41
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/index.ts#Marker",
+      "kind": "interface",
+      "name": "Marker",
+      "filePath": "src/index.ts",
+      "range": {
+        "startLine": 16,
+        "endLine": 18
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/index.ts#Marker$2",
+      "kind": "class",
+      "name": "Marker",
+      "filePath": "src/index.ts",
+      "range": {
+        "startLine": 20,
+        "endLine": 22
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/index.ts#run",
+      "kind": "function",
+      "name": "run",
+      "filePath": "src/index.ts",
+      "range": {
+        "startLine": 25,
+        "endLine": 40
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/index.ts#run.helper",
+      "kind": "function",
+      "name": "helper",
+      "filePath": "src/index.ts",
+      "range": {
+        "startLine": 26,
+        "endLine": 38
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/index.ts#run.helper.inner",
+      "kind": "function",
+      "name": "inner",
+      "filePath": "src/index.ts",
+      "range": {
+        "startLine": 28,
+        "endLine": 30
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/index.ts#run.helper.inner$2",
+      "kind": "function",
+      "name": "inner",
+      "filePath": "src/index.ts",
+      "range": {
+        "startLine": 33,
+        "endLine": 35
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/index.ts#Widget",
+      "kind": "class",
+      "name": "Widget",
+      "filePath": "src/index.ts",
+      "range": {
+        "startLine": 5,
+        "endLine": 13
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/index.ts#Widget.hasId",
+      "kind": "method",
+      "name": "hasId",
+      "filePath": "src/index.ts",
+      "range": {
+        "startLine": 6,
+        "endLine": 8
+      },
+      "revision": "rev1"
+    },
+    {
+      "id": "p1/sym:src/index.ts#Widget.hasId$2",
+      "kind": "method",
+      "name": "hasId",
+      "filePath": "src/index.ts",
+      "range": {
+        "startLine": 10,
+        "endLine": 12
+      },
+      "revision": "rev1"
+    }
+  ],
+  "relationships": [
+    {
+      "id": "r-620734c7d0a5",
+      "type": "DECLARES",
+      "sourceId": "p1/file:src/index.ts",
+      "targetId": "p1/sym:src/index.ts#Marker$2",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-7367f4e51bb7",
+          "filePath": "src/index.ts",
+          "range": {
+            "startLine": 20,
+            "startCol": 14,
+            "endLine": 20,
+            "endCol": 20
+          },
+          "snippet": "Marker",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-76757b13dc56",
+      "type": "DECLARES",
+      "sourceId": "p1/file:src/index.ts",
+      "targetId": "p1/sym:src/index.ts#Marker",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-ff61155a2276",
+          "filePath": "src/index.ts",
+          "range": {
+            "startLine": 16,
+            "startCol": 18,
+            "endLine": 16,
+            "endCol": 24
+          },
+          "snippet": "Marker",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-7f8b5c2e3d8f",
+      "type": "DECLARES",
+      "sourceId": "p1/sym:src/index.ts#Widget",
+      "targetId": "p1/sym:src/index.ts#Widget.hasId",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-5ee97e8ae88c",
+          "filePath": "src/index.ts",
+          "range": {
+            "startLine": 6,
+            "startCol": 3,
+            "endLine": 6,
+            "endCol": 8
+          },
+          "snippet": "hasId",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-96ac4b035bfb",
+      "type": "DECLARES",
+      "sourceId": "p1/file:src/index.ts",
+      "targetId": "p1/sym:src/index.ts#Widget",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-21137f864a6a",
+          "filePath": "src/index.ts",
+          "range": {
+            "startLine": 5,
+            "startCol": 14,
+            "endLine": 5,
+            "endCol": 20
+          },
+          "snippet": "Widget",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-99e5855c7f5d",
+      "type": "CALLS",
+      "sourceId": "p1/sym:src/index.ts#run.helper",
+      "targetId": "p1/sym:src/index.ts#run.helper.inner$2",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-00beeceec0a7",
+          "filePath": "src/index.ts",
+          "range": {
+            "startLine": 36,
+            "startCol": 14,
+            "endLine": 36,
+            "endCol": 21
+          },
+          "snippet": "inner()",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-b2965e311405",
+      "type": "DECLARES",
+      "sourceId": "p1/file:src/index.ts",
+      "targetId": "p1/sym:src/index.ts#run",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-161106233923",
+          "filePath": "src/index.ts",
+          "range": {
+            "startLine": 25,
+            "startCol": 17,
+            "endLine": 25,
+            "endCol": 20
+          },
+          "snippet": "run",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-b5842b65a8d7",
+      "type": "DECLARES",
+      "sourceId": "p1/sym:src/index.ts#run.helper",
+      "targetId": "p1/sym:src/index.ts#run.helper.inner",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-378bf7d187a2",
+          "filePath": "src/index.ts",
+          "range": {
+            "startLine": 28,
+            "startCol": 16,
+            "endLine": 28,
+            "endCol": 21
+          },
+          "snippet": "inner",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-b842139ad891",
+      "type": "DECLARES",
+      "sourceId": "p1/sym:src/index.ts#run.helper",
+      "targetId": "p1/sym:src/index.ts#run.helper.inner$2",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-0f252c9d5c05",
+          "filePath": "src/index.ts",
+          "range": {
+            "startLine": 33,
+            "startCol": 16,
+            "endLine": 33,
+            "endCol": 21
+          },
+          "snippet": "inner",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-c99a05421623",
+      "type": "DECLARES",
+      "sourceId": "p1/sym:src/index.ts#Widget",
+      "targetId": "p1/sym:src/index.ts#Widget.hasId$2",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-9b2dde7dc35f",
+          "filePath": "src/index.ts",
+          "range": {
+            "startLine": 10,
+            "startCol": 10,
+            "endLine": 10,
+            "endCol": 15
+          },
+          "snippet": "hasId",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-e11d3a0e48c1",
+      "type": "CALLS",
+      "sourceId": "p1/sym:src/index.ts#run",
+      "targetId": "p1/sym:src/index.ts#run.helper",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-92817c216fb5",
+          "filePath": "src/index.ts",
+          "range": {
+            "startLine": 39,
+            "startCol": 10,
+            "endLine": 39,
+            "endCol": 18
+          },
+          "snippet": "helper()",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-e4225c0c6e68",
+      "type": "CALLS",
+      "sourceId": "p1/sym:src/index.ts#run.helper",
+      "targetId": "p1/sym:src/index.ts#run.helper.inner",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-4d3577bcd5e8",
+          "filePath": "src/index.ts",
+          "range": {
+            "startLine": 31,
+            "startCol": 14,
+            "endLine": 31,
+            "endCol": 21
+          },
+          "snippet": "inner()",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    },
+    {
+      "id": "r-e7b195fb64a8",
+      "type": "DECLARES",
+      "sourceId": "p1/sym:src/index.ts#run",
+      "targetId": "p1/sym:src/index.ts#run.helper",
+      "resolution": "static",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "e-65630533777a",
+          "filePath": "src/index.ts",
+          "range": {
+            "startLine": 26,
+            "startCol": 12,
+            "endLine": 26,
+            "endCol": 18
+          },
+          "snippet": "helper",
+          "analyzer": "ts-analyzer@0.1.0",
+          "revision": "rev1"
+        }
+      ]
+    }
+  ],
+  "failures": []
+}

@@ -7,6 +7,7 @@ import { Overview } from './Overview.js';
 import { Explore } from './Explore.js';
 import { Review } from './Review.js';
 import { RunHistory } from './RunHistory.js';
+import { ChangedImpact } from './ChangedImpact.js';
 
 export function ProjectWorkspace(props: {
   projectId: string;
@@ -86,6 +87,9 @@ export function ProjectWorkspace(props: {
           <button className={tab === 'history' ? 'active' : ''} onClick={() => props.onNavigate('history')}>
             분석 이력
           </button>
+          <button className={tab === 'impact' ? 'active' : ''} onClick={() => props.onNavigate('impact')}>
+            변경 영향
+          </button>
         </nav>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {runError && <span style={{ color: 'var(--danger)', fontSize: 12 }}>{runError}</span>}
@@ -125,6 +129,11 @@ export function ProjectWorkspace(props: {
         {tab === 'history' && (
           <div className="content" style={{ width: '100%' }}>
             <RunHistory projectId={projectId} refreshKey={refreshKey} />
+          </div>
+        )}
+        {tab === 'impact' && (
+          <div className="content" style={{ width: '100%' }}>
+            <ChangedImpact projectId={projectId} refreshKey={refreshKey} onSelectEntity={goToEntity} />
           </div>
         )}
       </main>

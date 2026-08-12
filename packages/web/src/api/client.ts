@@ -1,6 +1,7 @@
 import type {
   AnalysisRun,
   AnalysisRunMode,
+  ChangedImpactResult,
   Entity,
   EntityKind,
   Project,
@@ -223,4 +224,14 @@ export const api = {
   // ── 유사 프로젝트 탐색 (ADR-0006) ────────────────────────────────────────
   getSimilarProjects: (projectId: string, limit = 10) =>
     request<{ items: SimilarProject[] }>(`/projects/${projectId}/similar?limit=${limit}`),
+
+  // ── 변경 영향 분석 (ADR-0008) ────────────────────────────────────────────
+  getChangedImpact: (projectId: string, runId: string, params: { depth?: number; maxCandidates?: number }) => {
+    const q = new URLSearchParams();
+    if (params.depth !== undefined) q.set('depth', String(params.depth));
+    if (params.maxCandidates !== undefined) q.set('maxCandidates', String(params.maxCandidates));
+    return request<{ runId: string } & ChangedImpactResult>(
+      `/projects/${projectId}/analysis/runs/${runId}/changed-impact?${q.toString()}`,
+    );
+  },
 };

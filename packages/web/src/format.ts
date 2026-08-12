@@ -17,3 +17,21 @@ export const ENTITY_KIND_LABEL: Record<EntityKind, string> = {
   method: 'Method',
   external_module: 'External Module',
 };
+
+// 변경 영향 분석(ADR-0008) 응답의 path 배열은 sourceId/targetId만 갖고 entity 이름을
+// 담지 않는다(새 DTO를 만들지 않기로 한 결정) — id 자체가 DATA-MODEL.md §1의 안정된
+// 스킴(`{projectId}/sym:{filePath}#{symbolPath}` 등)을 따르므로, 후보 개수만큼
+// entity를 개별 조회하는 대신 id를 파싱해 짧은 표시용 라벨을 만든다.
+export function entityIdLabel(id: string): string {
+  const symIdx = id.indexOf('/sym:');
+  if (symIdx >= 0) {
+    const rest = id.slice(symIdx + '/sym:'.length);
+    const hashIdx = rest.indexOf('#');
+    return hashIdx >= 0 ? rest.slice(hashIdx + 1) : rest;
+  }
+  const extIdx = id.indexOf('/ext:');
+  if (extIdx >= 0) return id.slice(extIdx + '/ext:'.length);
+  const fileIdx = id.indexOf('/file:');
+  if (fileIdx >= 0) return id.slice(fileIdx + '/file:'.length);
+  return id;
+}

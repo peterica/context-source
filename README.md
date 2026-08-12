@@ -70,6 +70,7 @@ docker compose up --build
 - 여러 프로젝트를 담은 실제 디렉터리를 쓰려면: `WORKSPACE_ROOT=/absolute/path/to/your/projects docker compose up --build` — 그 아래의 각 프로젝트를 UI에서 상대 경로로 등록한다.
 - 포트가 이미 사용 중이면 `API_PORT=9081 UI_PORT=9091 docker compose up --build`처럼 덮어쓴다.
 - `api`/`ui` 모두 `docker compose ps`에서 healthcheck 상태(`healthy`/`unhealthy`)를 확인할 수 있다 — `api`는 `GET /health`로 SQLite 접근 가능 여부까지 확인하고, `ui`는 `GET /healthz`로 정적 파일 서버 프로세스 생존만 확인한다.
+- 포트를 호스트 밖으로 노출하는 배포라면 `CONTEXTSOURCE_API_KEY=<secret> docker compose up --build`로 변경 오퍼레이션(등록/삭제/수정/분석 실행)에 API key를 요구할 수 있다. 조회는 그대로 열려 있고, **Web UI는 이 키를 모르므로 켜면 Web UI의 쓰기 동작도 막힌다** — 의도된 동작이다(API.md 1.4, [ADR-0010](./docs/adr/0010-security-roadmap.md)).
 
 #### SQLite 백업/복구
 

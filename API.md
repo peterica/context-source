@@ -72,6 +72,7 @@ HTTP path:    /entities/{base64url(canonical id)}
 | 409 | `PROJECT_ALREADY_EXISTS` | 이미 존재하는 id로 프로젝트 등록 시도 |
 | 404 | `RUN_NOT_FOUND` | 존재하지 않는 분석 실행 id |
 | 409 | `ANALYSIS_IN_PROGRESS` | 분석 실행 중 새 분석 요청 |
+| 401 | `UNAUTHORIZED` | API key가 설정된 서버에서 변경 오퍼레이션에 `x-api-key` 헤더가 없거나 틀림 (1.4) |
 
 ### 1.3 한도 (FR-AI3, NFR-4)
 
@@ -82,6 +83,14 @@ HTTP path:    /entities/{base64url(canonical id)}
 | `maxNodes` (서브그래프) | 200 | 1000 |
 
 한도 초과분은 잘라내고 응답에 `truncated: true`를 표시한다.
+
+### 1.4 인증 — 옵트인 API key (ADR-0010)
+
+서버 기동 시 `--api-key`(또는 환경변수 `CONTEXTSOURCE_API_KEY`)를 지정하지 않으면 이 절은 적용되지 않는다 — 기본값은 여전히 인증 없는 로컬 단일 사용자 실행이다(PRD NFR-6).
+
+지정한 경우: `GET`/`HEAD`/`OPTIONS`가 아닌 모든 `/api/v1` 요청은 `x-api-key: <설정한 값>` 헤더가 정확히 일치해야 하며, 없거나 틀리면 `401 UNAUTHORIZED`를 반환한다. 조회(`GET`)는 API key 설정 여부와 무관하게 항상 열려 있다. `GET /health`는 `/api/v1` 밖에 있어 이 절과 무관하게 항상 열려 있다(Docker healthcheck용).
+
+**Web UI는 이 키를 모른다.** 브라우저에 배포되는 정적 JS 번들에 넣는 값은 진짜 비밀이 될 수 없기 때문이다 — API key를 켜면 Web UI의 쓰기 동작(프로젝트 등록/삭제, 기술 스택 편집, 분석 실행)도 함께 401로 막힌다. 이 옵션은 "API 포트에 직접 접근할 수 있는 임의의 네트워크 클라이언트를 막는다"가 목적이며 "Web UI만 예외로 신뢰한다"가 아니다(자세한 이유는 ADR-0010 "하지 않는 것" 참고).
 
 ---
 

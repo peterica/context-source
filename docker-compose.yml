@@ -14,6 +14,13 @@ services:
       CONTEXTSOURCE_DB: /app/data/contextsource.sqlite
       CONTEXTSOURCE_WORKSPACE_ROOT: /workspaces
       PORT: 8080
+      # 비워두면(기본값) 기존과 동일하게 인증 없이 동작한다. 포트를 호스트 밖으로 노출하는
+      # 배포라면 `CONTEXTSOURCE_API_KEY=<secret> docker compose up`으로 값을 지정한다 —
+      # 이후 조회(GET)는 그대로 열려 있고 변경 오퍼레이션(POST/PATCH/DELETE)에는
+      # `x-api-key: <secret>` 헤더가 필요하다(ADR-0010, BENCHMARK.md 5.12).
+      # 주의: Web UI(ui 서비스)는 이 키를 모른다 — 켜면 Web UI의 등록/삭제/기술 스택 편집/
+      # 분석 실행 같은 쓰기 동작도 401로 막힌다(의도된 동작, ADR-0010 "하지 않는 것" 참고).
+      CONTEXTSOURCE_API_KEY: ${CONTEXTSOURCE_API_KEY:-}
     volumes:
       - contextsource-data:/app/data
       # 여러 프로젝트를 담는 상위 디렉터리 — 기본값은 저장소에 포함된 샘플 프로젝트들의 부모 디렉터리.

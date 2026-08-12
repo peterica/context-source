@@ -21,6 +21,13 @@ servers:
   - url: http://localhost:9080/api/v1
     description: 로컬 기본값 (PORT/API_PORT 환경변수로 변경 가능, README.md 참고)
 
+# 옵트인 인증(ADR-0010, API.md 1.4) — `{}`(인증 없음)와 ApiKeyAuth 둘 다 허용해 "설정하지
+# 않으면 그대로 열려 있고, 설정하면 요구된다"는 실제 동작을 표현한다. 서버가 --api-key /
+# CONTEXTSOURCE_API_KEY 없이 기동되면 이 스킴은 정의되어 있어도 실제로 아무것도 요구하지 않는다.
+security:
+  - {}
+  - ApiKeyAuth: []
+
 tags:
   - name: workspace
     description: 서버에 설정된 workspace-root 정보 (읽기 전용)
@@ -687,6 +694,16 @@ paths:
         '404': { $ref: '#/components/responses/ProjectNotFound' }
 
 components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: |
+        옵트인(ADR-0010, API.md 1.4) — 서버가 --api-key / CONTEXTSOURCE_API_KEY로 기동된
+        경우에만 적용된다. GET/HEAD/OPTIONS 요청에는 필요 없다(조회는 항상 열려 있음).
+        Web UI는 이 키를 모른다 — 켜면 Web UI의 쓰기 동작도 401로 막힌다(의도된 동작).
+
   parameters:
     ProjectId:
       name: id
@@ -762,6 +779,7 @@ components:
                 - PROJECT_ALREADY_EXISTS
                 - RUN_NOT_FOUND
                 - ANALYSIS_IN_PROGRESS
+                - UNAUTHORIZED
             message: { type: string }
 
     EntityKind:

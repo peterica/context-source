@@ -62,6 +62,29 @@ export interface AppContext {
   workspaceRoot: string;
   /** 분석 시점 revision을 프로젝트의 root_path 기준으로 계산한다 (git 저장소가 아니면 호출측이 폴백값을 반환). */
   resolveRevision?: (repoRoot: string) => string;
+  /**
+   * 설정하면 GET이 아닌 모든 /api/v1 요청에 x-api-key 헤더 일치를 요구한다(ADR-0010).
+   * 미설정(기본값)이면 이 프로젝트의 기본 전제인 로컬 단일 사용자 실행과 완전히 동일하게
+   * 동작한다 — 하위 호환을 위해 옵트인으로만 켜진다.
+   */
+  apiKey?: string;
+}
+
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+function requireApiKey(apiKey: string) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (SAFE_METHODS.has(req.method)) {
+      next();
+      return;
+    }
+    if (req.header('x-api-key') !== apiKey) {
+      const err = new ApiError('UNAUTHORIZED', '변경 오퍼레이션에는 올바른 x-api-key 헤더가 필요합니다');
+      res.status(err.status).json(toErrorBody(err));
+      return;
+    }
+    next();
+  };
 }
 
 function asyncHandler(fn: (req: Request, res: Response) => void) {
@@ -123,6 +146,14 @@ export function createApp(ctx: AppContext): Express {
   });
 
   const router = express.Router();
+
+  // ctx.apiKey가 설정된 경우에만 켜진다 — 미설정이면 기존 로컬 단일 사용자 동작 그대로다
+  // (ADR-0010, BENCHMARK.md 5.12). health check(app.get('/health', ...))는 router가 아니라
+  // app에 직접 등록되어 있어 이 미들웨어의 영향을 받지 않는다 — Docker healthcheck가
+  // API key 없이도 계속 동작해야 하기 때문.
+  if (ctx.apiKey) {
+    router.use(requireApiKey(ctx.apiKey));
+  }
 
   // ── workspace 정보 (읽기 전용) ───────────────────────────────────────────
   // 프로젝트 등록 폼이 "workspace root 기준 상대 경로"를 요구하는데, 정작 그 root 값을

@@ -4,7 +4,8 @@ export type ErrorCode =
   | 'PROJECT_NOT_FOUND'
   | 'PROJECT_ALREADY_EXISTS'
   | 'RUN_NOT_FOUND'
-  | 'ANALYSIS_IN_PROGRESS';
+  | 'ANALYSIS_IN_PROGRESS'
+  | 'UNAUTHORIZED';
 
 const STATUS_BY_CODE: Record<ErrorCode, number> = {
   INVALID_PARAM: 400,
@@ -13,6 +14,7 @@ const STATUS_BY_CODE: Record<ErrorCode, number> = {
   PROJECT_ALREADY_EXISTS: 409,
   RUN_NOT_FOUND: 404,
   ANALYSIS_IN_PROGRESS: 409,
+  UNAUTHORIZED: 401,
 };
 
 export class ApiError extends Error {
@@ -37,6 +39,7 @@ const KNOWN_CODES: ErrorCode[] = [
   'PROJECT_ALREADY_EXISTS',
   'RUN_NOT_FOUND',
   'ANALYSIS_IN_PROGRESS',
+  'UNAUTHORIZED',
 ];
 
 /**

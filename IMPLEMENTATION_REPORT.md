@@ -376,3 +376,25 @@ Phase 2 완결과 벤치마크 P0/P1/P2 항목 정리 이후, 사용자가 "실�
 **총 테스트**: 신규 20개(core 11 + api 9) 포함 전체 스위트 171개(core 110 + api 53 + mcp 8) 통과, typecheck/lint/production build 모두 통과.
 
 **의도적으로 하지 않은 것** (ADR-0008 "하지 않는 것" 절 그대로): 새 Relationship Type 추가, 범용 Path Query 언어, "이게 실제로 깨진다"는 단정적 예측이나 자동 수정 제안, `TESTS` 관계 타입 기반의 정확한 테스트 매핑(경로 패턴 휴리스틱으로 대체), MCP tool 노출(Web UI에서 기능이 검증된 뒤 별도 판단).
+
+---
+
+## 17. 부록 — 골든 fixture 회귀 하네스 (BENCHMARK.md 5.4, 2026-08-12)
+
+ADR-0008(변경 영향 분석) 완료 후 BENCHMARK.md에 남은 미해결 P0 3개(5.4 분석 품질 측정 체계, 5.9 프로젝트 카탈로그 포지셔닝, 5.12 보안/인증 로드맵) 중 어떤 것을 다음으로 할지 사용자에게 확인했고, 5.4를 선택했다.
+
+**갭**: 골든 fixture 9종(`basic-import`, `barrel-reexport`, `inheritance`, `overload-generic`, `duplicate-symbol-names`, `callback-hof`, `dynamic-import`, `external-package`, `parse-failure`)이 이미 저장소에 있었지만, `project-analyzer.test.ts`의 개별 `it()`은 "이 관계가 존재한다"는 spot-check만 했다 — "이게 전부다(초과·누락 없음)"는 어떤 테스트도 검증하지 않았다. 즉 analyzer가 실수로 관계를 하나 더 만들거나(false positive) 기존 관계를 하나 빠뜨려도(recall 저하) 골든 fixture만으로는 전혀 잡히지 않는 상태였다.
+
+**구현**:
+
+- `packages/core/test/golden/normalize.mjs` — `AnalysisResult`(entities/relationships/evidence/failures)를 결정적 순서(id 오름차순)로 정렬하고 `projectId` 같은 파생 필드를 제거하는 순수 함수. `.ts`가 아니라 `.mjs`로 작성한 이유: 이 로직을 두 실행 컨텍스트(vitest가 esbuild로 트랜스파일하는 테스트 파일, 빌드된 `dist/index.js`를 그대로 import하는 node 유지보수 스크립트)가 동일하게 써야 하는데, 순수 JS로 작성하면 두 곳 모두에서 별도 컴파일 단계 없이 그대로 import된다.
+- `packages/core/test/golden/generate.mjs` — 각 fixture를 `analyzeProject()`로 분석해 정규화한 뒤 `test/fixtures/<name>/golden.json`에 기록하는 유지보수 스크립트(`npm run generate-golden -w @contextsource/core`, `npm run build`로 dist가 최신인 상태에서 실행). fixture를 의도적으로 바꿀 때만 재실행한다 — 최초 9종+신규 1종은 이미 spot-check 테스트로 정확성이 검증된 현재 analyzer 출력에서 그대로 부트스트랩했다(새로 값을 손으로 추정해 넣지 않음).
+- `packages/core/test/golden.test.ts` — fixture 디렉터리를 전부 스캔해 (1) `golden.json`이 없는 fixture가 있으면 "커버리지 누락"으로 실패시키는 가드 테스트 1개, (2) `golden.json`이 있는 fixture마다 실제 `analyzeProject()` 출력을 정규화해 golden과 `toEqual`로 완전 비교하는 테스트를 자동 생성한다. 새 CI 워크플로 변경은 불필요했다 — `npm run test`가 이미 `packages/core` 전체 vitest 스위트를 돈다(5.13에서 CI 자동화가 이미 해결됨).
+- 하네스가 실제로 드리프트를 잡는지 직접 검증했다: `basic-import/golden.json`의 confidence 값 하나를 의도적으로 바꿔 테스트가 실패하는 것을 확인한 뒤 원복했다.
+- `failures` 배열은 `filePath`와 "메시지가 비어있지 않다"만 golden에 담고 정확한 TS 진단 메시지 문구는 비교하지 않는다 — TypeScript 컴파일러 버전이 바뀌면 메시지 문구도 바뀔 수 있어, 그대로 golden에 박으면 무관한 컴파일러 업그레이드만으로 실패하게 된다.
+
+**신규 fixture — `dependency-injection`**: BENCHMARK.md 5.4가 나열한 9개 시나리오 중 "dependency injection"만 기존 9종에 없었다. `Logger` 인터페이스 → `ConsoleLogger`(구현체) → `OrderService`(생성자로 `Logger` 주입받아 `this.logger.log(...)` 호출) → `main.ts`(`new OrderService(new ConsoleLogger())` 조립) 4개 파일로 구성했다. 분석 결과를 예측하며 §10 "알려진 제한사항"에 이미 산문으로 적혀있던 내용(인터페이스 멤버는 Entity로 추출되지 않으므로(ADR-0002 §2) 인터페이스 타입 필드를 통한 호출은 대상을 특정할 수 없어 CALLS 관계가 생성되지 않는다)을 다시 발견했고, 실제 `analyzeProject()` 실행으로 정확히 확인했다 — `this.logger.log('order placed')`는 어떤 CALLS 관계도 만들지 않는다(반면 `new OrderService(...)`, `new ConsoleLogger()`, `service.placeOrder()`처럼 구체 타입을 통한 호출은 전부 static CALLS로 정확히 잡힌다). 이 결과를 golden.json에 "해당 소스의 CALLS 관계 0건"으로 명시적으로 박아, 산문으로만 존재하던 알려진 한계를 CI가 강제하는 회귀 테스트로 승격시켰다 — 이 한계가 조용히 더 나빠지거나(다른 인터페이스 호출까지 못 잡게 되거나), 반대로 잘못된 방식(예: 휴리스틱 추측)으로 "고쳐져" false positive를 만드는 것을 방지한다. `project-analyzer.test.ts`에도 같은 내용을 spot-check로 추가했다(5개 `it()`).
+
+**총 테스트**: 신규 16개(golden.test.ts 11 + project-analyzer.test.ts DI 스펙 5) 포함 전체 스위트 187개(core 126 + api 53 + mcp 8) 통과, typecheck/lint/production build 모두 통과.
+
+**의도적으로 하지 않은 것**: PRD 95% recall 목표의 대규모 정량 검증(전수/샘플링 골든셋 구축)은 여전히 범위 밖이다 — 그건 §15/§16(BENCHMARK.md 5.11)이 실제 오픈소스 프로젝트(typeorm)로 별도 수행했고, 이번 작업은 "이미 있는 골든 fixture가 실제로 완전성을 강제하는가"라는 좁은 갭만 닫는다. 두 번째 오픈소스 프로젝트로의 교차 검증, `unresolved` resolution 상태 도입(§10에 이미 기록된 별도 미결정 사항)도 하지 않았다.

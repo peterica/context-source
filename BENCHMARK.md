@@ -325,7 +325,7 @@ Evidence 기반 검토 순서
 
 **2026-08-12 해결**: Web UI에 이 흐름 그대로 "변경 영향" 탭(`/projects/:id/impact`)을 추가했다(ADR-0008 결정 5). 분석 run을 고르면(기본값: 최신 완료 run) `changed-impact`를 조회해 `isDirectImpact` 그룹(직접 영향) → 나머지(간접 영향) → `isLikelyTestFile`(관련 테스트로 보이는 파일, `TESTS` 관계 타입 없이 파일 경로 패턴 휴리스틱만 사용) 순서로 묶어 보여주고, 각 후보를 펼치면 경로별 Evidence까지 인라인으로 확인할 수 있다. Playwright로 실제 브라우저에서 전체 흐름을 검증했다. IMPLEMENTATION_REPORT.md §16 참고.
 
-### 5.4 P0 — 분석 품질 측정 체계 구축
+### 5.4 P0 — [해결됨] 분석 품질 측정 체계 구축
 
 PRD의 `static false positive 0%, recall 95%` 목표를 측정할 골든 fixture를 저장소에 포함한다.
 
@@ -343,6 +343,12 @@ PRD의 `static false positive 0%, recall 95%` 목표를 측정할 골든 fixture
 각 fixture에 예상 Entity, Relationship, resolution, Evidence를 선언하고 CI에서 비교한다.
 
 > **상태 (2026-08-11)**: **미착수.** 골든 fixture 9종은 이미 저장소에 있고 CI 없이 로컬 `make test`로 통과하지만, PRD의 `static false positive 0%, recall 95%` 수치 자체를 실제 중형~대형 오픈소스 TypeScript 프로젝트로 측정한 적은 없다(IMPLEMENTATION_REPORT.md §9). 5.11(신규)이 이 갭을 성능 축까지 포함해 더 구체화한다.
+
+**2026-08-12 해결**: "각 fixture에 예상 Entity, Relationship, resolution, Evidence를 선언하고 CI에서 비교한다"를 그대로 구현했다 — 기존에는 9종 fixture가 있어도 개별 `it()`이 "이 관계가 존재한다"만 확인할 뿐 "이게 전부다(초과·누락 없음)"는 검증하지 않았다(예: 실수로 관계를 하나 더 만들어도 어떤 테스트도 실패하지 않았다). 이제 각 fixture 디렉터리에 `golden.json`(정규화된 Entity/Relationship/Evidence 전체 스냅샷, id 포함)을 두고 `packages/core/test/golden.test.ts`가 `analyzeProject()` 실제 출력과 정확히 일치하는지 비교한다 — 하나라도 다르면 실패, CI(`npm run test`)에서 자동 실행된다(별도 워크플로 변경 불필요, 5.13에서 이미 CI가 전체 vitest 스위트를 돈다). "golden.json이 없는 fixture 디렉터리가 있으면 안 된다"는 커버리지 가드 테스트도 추가해, 새 fixture를 추가하고 golden 생성을 깜빡하는 것 자체를 막는다. 목록에 있던 "파일 삭제·이동·심볼 이름 변경"은 새 fixture가 아니라 이미 실제 git repo로 검증하는 `incremental.test.ts`가 담당한다(정적 golden 스냅샷과는 성격이 다름 — revision 간 diff가 핵심이므로).
+
+원래 목록의 9개 시나리오 중 **"dependency injection"만 빠져 있었다** — 새 fixture(`dependency-injection`)로 추가하며 의도적으로 IMPLEMENTATION_REPORT.md §10이 이미 산문으로만 적어뒀던 알려진 한계(생성자로 주입된 인터페이스 타입 필드를 통한 호출은 CALLS 관계가 생성되지 않음, `this.logger.log(...)` 같은 패턴)를 golden.json에 "CALLS 관계 0건"으로 명시적으로 박아 CI가 강제하는 회귀 테스트로 승격했다 — 이 한계가 우연히 사라지거나(예: false positive를 만드는 방식으로 잘못 고쳐지거나) 조용히 더 나빠지는 것을 방지한다.
+
+**의도적으로 하지 않은 것**: PRD 95% recall 수치 자체의 대규모 정량 검증(전수/샘플링 골든셋)은 여전히 이 항목의 범위가 아니다 — 그건 5.11이 실제 오픈소스 프로젝트(typeorm)로 별도 수행했다(소규모 수작업 표본, 대규모 정량 recall은 여전히 근사치임을 5.11도 명시). 이 항목은 "이미 있는 골든 fixture들이 실제로 완전성을 강제하는가"라는 좁은 갭만 닫는다.
 
 ### 5.5 P1 — 정밀 분석 실패 시 폴백 모델 추가
 
@@ -516,7 +522,7 @@ Web UI(React+Cytoscape.js)에서 키보드 내비게이션, 스크린리더, 색
 
 Sourcegraph의 검색 규모, Copilot의 AI 범용성, Joern의 분석 깊이를 그대로 따라가기보다는 **로컬 TypeScript 프로젝트의 변경 영향을 근거와 함께 설명하는 공통 Context 계층**에 집중하는 것이 가장 선명한 차별화 전략이다.
 
-> **2026-08-11 주석 — 권장 순서와 실제 실행의 괴리**: 실제로는 MVP(1~5에 해당하는 Phase 1) 완료 직후 6·7이 아니라 ROADMAP.md Phase 2 "Project Knowledge Base"(Project Entity·기술 스택 관리·유사 프로젝트 탐색)에 먼저 착수했다 — 이 문서의 P0 항목인 5.1(영향 분석 의미 정의)~5.4(품질 측정 체계)는 그 시점엔 여전히 미착수 상태였다(IMPLEMENTATION_REPORT.md §12~14 참고). 이는 사용자가 명시적으로 Phase 2를 지시했기 때문이며 그 자체로 잘못된 선택은 아니지만, 이 벤치마크 문서가 제안한 우선순위가 실제 의사결정에 그대로 반영되지는 않았다는 사실은 솔직하게 기록해야 한다 — 벤치마크 문서의 실효성을 스스로 점검하는 차원에서 남긴다. **2026-08-12 갱신**: Phase 2 완결과 실제 규모 검증(5.11) 이후 5.1~5.3은 [해결됨]으로 닫혔다(ADR-0008, IMPLEMENTATION_REPORT.md §16). 5.4(분석 품질 측정 체계)는 여전히 미착수다.
+> **2026-08-11 주석 — 권장 순서와 실제 실행의 괴리**: 실제로는 MVP(1~5에 해당하는 Phase 1) 완료 직후 6·7이 아니라 ROADMAP.md Phase 2 "Project Knowledge Base"(Project Entity·기술 스택 관리·유사 프로젝트 탐색)에 먼저 착수했다 — 이 문서의 P0 항목인 5.1(영향 분석 의미 정의)~5.4(품질 측정 체계)는 그 시점엔 여전히 미착수 상태였다(IMPLEMENTATION_REPORT.md §12~14 참고). 이는 사용자가 명시적으로 Phase 2를 지시했기 때문이며 그 자체로 잘못된 선택은 아니지만, 이 벤치마크 문서가 제안한 우선순위가 실제 의사결정에 그대로 반영되지는 않았다는 사실은 솔직하게 기록해야 한다 — 벤치마크 문서의 실효성을 스스로 점검하는 차원에서 남긴다. **2026-08-12 갱신**: Phase 2 완결과 실제 규모 검증(5.11) 이후 5.1~5.4가 모두 [해결됨]으로 닫혔다(ADR-0008 + 골든 fixture 회귀 하네스, IMPLEMENTATION_REPORT.md §16~17). 이 문서 최초 작성 시점(5.1~5.4)에 제안했던 P0 4개 항목이 이제 전부 닫힌 상태다.
 
 ---
 
@@ -541,3 +547,4 @@ MVP는 범용 코드 인텔리전스 플랫폼보다 **Evidence 기반 TypeScrip
 | 2026-08-04 | 0.1 (Draft) | 최초 작성 — Sourcegraph/CodeSee/Copilot/CodeQL/Joern 5개 제품 분석, 개선 과제 5.1~5.8 |
 | 2026-08-11 | 0.2 | Phase 2(Project Entity·기술 스택 관리·유사 프로젝트 탐색) 완료 및 P0 결함 수정 이후, 경쟁 벤치마킹 서브에이전트의 독립 검토를 반영해 개정. 주요 변경: (1) Backstage(내부 개발자 포털) 카테고리 신설(3.6), (2) CodeSee의 단종·GitKraken 인수 사실 반영(3.2), (3) §4 차별화 서술에 Phase 2 반영, (4) 5.4/5.6에 현재 상태 주석 추가, (5) 신규 개선 과제 5.9~5.20 추가(성능 실측·보안·CI·확장성·다중 언어·운영 성숙도·문서 발견성·라이선스·접근성 등), (6) 유사 프로젝트 스코어링 결함을 5.10에 기록하고 해결 완료로 표시, (7) §6에 권장 순서와 실제 실행의 괴리를 주석으로 기록, (8) §7에 "0일차 프로젝트" 전제 명시 |
 | 2026-08-12 | 0.3 | 실제 규모 검증(typeorm, 5.11)과 그 과정에서 발견한 크래시·관계 유실 결함 2건 수정을 기록. 이어서 ADR-0008(변경 영향 분석)을 설계·구현해 5.1~5.3을 [해결됨]으로 표시(§6 주석 갱신 포함) — `GET /entities/{id}/impact`, `GET /analysis/runs/{id}/changed-impact` 두 endpoint와 Web UI "변경 영향" 탭. IMPLEMENTATION_REPORT.md §15~16, API.md 2.10, openapi.yaml 참고 |
+| 2026-08-12 | 0.4 | 5.4(분석 품질 측정 체계)를 [해결됨]으로 표시 — 기존 골든 fixture 9종 + 신규 `dependency-injection` 1종에 `golden.json`(정규화된 Entity/Relationship/Evidence 전체 스냅샷)을 붙이고 `packages/core/test/golden.test.ts`로 CI에서 완전 일치를 강제하는 회귀 하네스를 추가했다. 새 fixture는 §10 알려진 제한사항의 "인터페이스 타입 필드를 통한 DI 호출은 CALLS가 생성되지 않는다"를 golden.json에 명시적으로 박아 회귀 테스트로 승격시켰다. IMPLEMENTATION_REPORT.md §17 참고. §6 주석도 갱신(5.1~5.4 전부 해결) |

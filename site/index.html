@@ -1,0 +1,1347 @@
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ContextSource — 코드를 관계로 읽는다</title>
+<meta name="description" content="ContextSource는 TypeScript 소스를 Entity·Relationship·Evidence 그래프로 변환하는 로컬 실행 코드 관계 분석기입니다." />
+<style>
+  /* ────────────────────────────────────────────────────────────
+     Tokens — light은 기본값(:root), dark는 media query + data-theme로 재정의.
+     accent(teal)=Relationship, evidence(amber)=Evidence, static-ok(green)=확정 관계.
+     후자 둘은 실제 제품 UI(static/inferred 배지)에서 그대로 가져온 색이다.
+  ──────────────────────────────────────────────────────────── */
+  :root {
+    --ground: #f4f6fa;
+    --surface: #ffffff;
+    --surface-2: #eef1f6;
+    --border: #dce2ec;
+    --text: #11141c;
+    --text-dim: #5b6373;
+    --text-faint: #8791a3;
+    --accent: #0e8f86;
+    --accent-ink: #ffffff;
+    --evidence: #a8710d;
+    --static-ok: #2f8f5b;
+    --shadow: 0 1px 2px rgba(17, 20, 28, 0.04), 0 8px 24px rgba(17, 20, 28, 0.06);
+
+    --font-display: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Segoe UI", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas, "Liberation Mono", monospace;
+    --font-body: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
+
+    color-scheme: light;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0a0d13;
+      --surface: #12161f;
+      --surface-2: #171c27;
+      --border: #262e3d;
+      --text: #e8ecf3;
+      --text-dim: #8a93a8;
+      --text-faint: #5e6779;
+      --accent: #4fd1c5;
+      --accent-ink: #06211e;
+      --evidence: #dfa855;
+      --static-ok: #57c78d;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px rgba(0, 0, 0, 0.35);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0a0d13;
+    --surface: #12161f;
+    --surface-2: #171c27;
+    --border: #262e3d;
+    --text: #e8ecf3;
+    --text-dim: #8a93a8;
+    --text-faint: #5e6779;
+    --accent: #4fd1c5;
+    --accent-ink: #06211e;
+    --evidence: #dfa855;
+    --static-ok: #57c78d;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px rgba(0, 0, 0, 0.35);
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --ground: #f4f6fa;
+    --surface: #ffffff;
+    --surface-2: #eef1f6;
+    --border: #dce2ec;
+    --text: #11141c;
+    --text-dim: #5b6373;
+    --text-faint: #8791a3;
+    --accent: #0e8f86;
+    --accent-ink: #ffffff;
+    --evidence: #a8710d;
+    --static-ok: #2f8f5b;
+    --shadow: 0 1px 2px rgba(17, 20, 28, 0.04), 0 8px 24px rgba(17, 20, 28, 0.06);
+    color-scheme: light;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+  }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: inherit; }
+  img, svg, canvas { display: block; max-width: 100%; }
+
+  ::selection { background: var(--accent); color: var(--accent-ink); }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    text-wrap: balance;
+    margin: 0;
+    color: var(--text);
+  }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55em;
+  }
+  .eyebrow::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 1px;
+    background: var(--accent);
+    display: inline-block;
+    flex: none;
+  }
+
+  code, pre, .mono { font-family: var(--font-mono); }
+
+  .wrap {
+    max-width: 1120px;
+    margin-inline: auto;
+    padding-inline: 28px;
+  }
+  @media (max-width: 640px) {
+    .wrap { padding-inline: 20px; }
+  }
+
+  .prose { max-width: 62ch; }
+  .prose p { color: var(--text-dim); }
+
+  section { padding-block: 96px; }
+  @media (max-width: 720px) {
+    section { padding-block: 64px; }
+  }
+
+  .section-head {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-bottom: 44px;
+  }
+  .section-head h2 { font-size: clamp(1.6rem, 2.6vw, 2.1rem); }
+  .section-head p { color: var(--text-dim); max-width: 58ch; margin: 0; }
+
+  /* ── nav ─────────────────────────────────────────────── */
+  header.site-nav {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    background: color-mix(in oklab, var(--ground) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+  .site-nav .wrap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 0.95rem;
+    letter-spacing: 0.01em;
+    text-decoration: none;
+  }
+  .brand svg { width: 20px; height: 20px; color: var(--accent); }
+  nav.links {
+    display: flex;
+    align-items: center;
+    gap: 26px;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+  nav.links a { text-decoration: none; }
+  nav.links a:hover { color: var(--text); }
+  nav.links .gh {
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    border-radius: 6px;
+  }
+  nav.links .gh:hover { border-color: var(--accent); color: var(--accent); }
+  @media (max-width: 640px) {
+    nav.links { display: none; }
+  }
+
+  /* ── hero ────────────────────────────────────────────── */
+  .hero { padding-block: 88px 40px; }
+  .hero-inner {
+    display: grid;
+    gap: 26px;
+    max-width: 800px;
+  }
+  .hero h1 {
+    font-size: clamp(2.4rem, 5.4vw, 3.7rem);
+    line-height: 1.12;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+  }
+  .hero h1 em {
+    font-style: normal;
+    color: var(--accent);
+  }
+  .hero .lede {
+    font-size: 1.1rem;
+    color: var(--text-dim);
+    max-width: 56ch;
+  }
+  .hero .lede b { color: var(--text); font-weight: 600; }
+
+  .cta-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
+    margin-top: 6px;
+  }
+  .btn-terminal {
+    font-family: var(--font-mono);
+    font-size: 0.86rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 12px 16px;
+    border-radius: 7px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .btn-terminal:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .btn-terminal .prompt { color: var(--accent); }
+  .btn-terminal .copy-state { color: var(--text-faint); font-size: 0.76rem; }
+
+  .link-arrow {
+    font-family: var(--font-mono);
+    font-size: 0.86rem;
+    text-decoration: none;
+    color: var(--text-dim);
+    border-bottom: 1px solid transparent;
+    padding-bottom: 2px;
+  }
+  .link-arrow:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* ── graph demo ──────────────────────────────────────── */
+  .demo {
+    margin-top: 56px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .demo-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .demo-legend {
+    display: flex;
+    gap: 16px;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    flex-wrap: wrap;
+  }
+  .demo-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+  .demo-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(260px, 1fr);
+  }
+  @media (max-width: 860px) {
+    .demo-body { grid-template-columns: 1fr; }
+  }
+
+  .graph-stage {
+    position: relative;
+    aspect-ratio: 900 / 540;
+    background:
+      radial-gradient(circle at 18% 18%, color-mix(in oklab, var(--accent) 10%, transparent), transparent 46%),
+      var(--surface-2);
+    border-right: 1px solid var(--border);
+  }
+  @media (max-width: 860px) {
+    .graph-stage { border-right: none; border-bottom: 1px solid var(--border); }
+  }
+  @media (max-width: 480px) {
+    /* 좁은 화면에서는 더 세로로 긴 캔버스를 써서 노드/라벨이 겹치지 않을 여유를 준다. */
+    .graph-stage { aspect-ratio: 900 / 760; }
+  }
+  .graph-stage canvas { width: 100%; height: 100%; }
+
+  .evidence-side {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .evidence-panel {
+    padding: 18px;
+    border-bottom: 1px solid var(--border);
+    flex: 1;
+    min-height: 190px;
+  }
+  .evidence-panel .rel-line {
+    font-family: var(--font-mono);
+    font-size: 0.92rem;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .evidence-panel .rel-line .src, .evidence-panel .rel-line .tgt { font-weight: 600; }
+  .evidence-panel .rel-line .arrow { color: var(--text-faint); }
+
+  .badge {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.03em;
+    padding: 2px 7px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    display: inline-block;
+  }
+  .badge.type { background: color-mix(in oklab, var(--accent) 16%, transparent); color: var(--accent); }
+  .badge.static { background: color-mix(in oklab, var(--static-ok) 16%, transparent); color: var(--static-ok); }
+  .badge.inferred { background: color-mix(in oklab, var(--evidence) 18%, transparent); color: var(--evidence); }
+
+  .evidence-meta {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--text-faint);
+    margin: 10px 0 8px;
+  }
+  .evidence-snippet {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    color: var(--text);
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .evidence-note {
+    margin-top: 12px;
+    font-size: 0.82rem;
+    color: var(--text-dim);
+  }
+
+  .edge-list {
+    padding: 14px 18px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-height: 150px;
+    overflow-y: auto;
+  }
+  .edge-chip {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 5px 9px;
+    border-radius: 999px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .edge-chip:hover { color: var(--text); border-color: var(--accent); }
+  .edge-chip[aria-pressed="true"] {
+    color: var(--accent-ink);
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  /* ── problem ─────────────────────────────────────────── */
+  .problem-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 56px;
+    align-items: start;
+  }
+  @media (max-width: 800px) {
+    .problem-grid { grid-template-columns: 1fr; gap: 32px; }
+  }
+  .problem-grid h2 { font-size: clamp(1.7rem, 3vw, 2.3rem); margin-bottom: 18px; }
+  .compare-card {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    padding: 22px;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    line-height: 1.85;
+  }
+  .compare-card .row { display: flex; gap: 10px; }
+  .compare-card .row .tag { flex: none; width: 84px; color: var(--text-faint); }
+  .compare-card .row + .row { border-top: 1px dashed var(--border); margin-top: 6px; padding-top: 6px; }
+  .compare-card .no { color: var(--text-faint); }
+  .compare-card .yes { color: var(--accent); }
+
+  /* ── model ───────────────────────────────────────────── */
+  .model-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  @media (max-width: 820px) {
+    .model-grid { grid-template-columns: 1fr; }
+  }
+  .model-card {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+    padding: 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .model-card .glyph {
+    width: 34px; height: 34px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 8px;
+    background: var(--surface-2);
+    color: var(--accent);
+  }
+  .model-card h3 { font-size: 1.2rem; }
+  .model-card p { color: var(--text-dim); font-size: 0.92rem; margin: 0; }
+  .model-card .taglist {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    font-family: var(--font-mono); font-size: 0.7rem;
+    margin-top: auto;
+    padding-top: 10px;
+  }
+  .model-card .taglist span {
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 3px 8px;
+    border-radius: 5px;
+  }
+
+  /* ── features ────────────────────────────────────────── */
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  @media (max-width: 760px) {
+    .feature-grid { grid-template-columns: 1fr; }
+  }
+  .feature {
+    background: var(--surface);
+    padding: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .feature .num {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--text-faint);
+  }
+  .feature h3 { font-size: 1.15rem; font-family: var(--font-display); }
+  .feature p { color: var(--text-dim); font-size: 0.92rem; margin: 0; }
+  .feature .detail {
+    margin-top: 8px;
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    color: var(--text-faint);
+    border-left: 2px solid var(--border);
+    padding-left: 10px;
+  }
+
+  /* ── shared context ──────────────────────────────────── */
+  .flow {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+  }
+  .flow .box {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    padding: 14px 16px;
+    border-radius: 8px;
+    text-align: center;
+    color: var(--text);
+    box-shadow: var(--shadow);
+  }
+  .flow .box.core { border-color: var(--accent); color: var(--accent); }
+  .flow .arrow { color: var(--text-faint); font-size: 1rem; }
+  .flow .fan {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .shared-note {
+    margin-top: 28px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    max-width: 62ch;
+  }
+  .shared-note .mark { color: var(--accent); font-family: var(--font-mono); flex: none; }
+
+  /* ── architecture ────────────────────────────────────── */
+  .stack {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  @media (max-width: 760px) {
+    .stack { grid-template-columns: 1fr; }
+  }
+  .stack .layer {
+    padding: 22px 18px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    position: relative;
+  }
+  .stack .layer:last-child { border-right: none; }
+  @media (max-width: 760px) {
+    .stack .layer { border-right: none; border-bottom: 1px solid var(--border); }
+    .stack .layer:last-child { border-bottom: none; }
+  }
+  .stack .layer .step {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--text-faint);
+    margin-bottom: 8px;
+  }
+  .stack .layer h4 {
+    font-family: var(--font-display);
+    font-size: 1.02rem;
+    margin: 0 0 6px;
+    font-weight: 600;
+  }
+  .stack .layer p { margin: 0; font-size: 0.8rem; color: var(--text-dim); }
+
+  .req-note {
+    margin-top: 20px;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--text-faint);
+  }
+  .req-note code { color: var(--text-dim); }
+
+  /* ── quality ─────────────────────────────────────────── */
+  .quality-panel {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .quality-panel .bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--text-faint);
+  }
+  .quality-panel .bar span.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    font-family: var(--font-mono);
+  }
+  @media (max-width: 760px) {
+    .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  .stat {
+    padding: 26px 20px;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .stat:nth-child(4n) { border-right: none; }
+  @media (max-width: 760px) {
+    .stat:nth-child(2n) { border-right: none; }
+  }
+  .stat .n {
+    font-size: 1.7rem;
+    font-weight: 600;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+  .stat .n .unit { font-size: 0.95rem; color: var(--text-dim); font-weight: 500; }
+  .stat .l { font-size: 0.72rem; color: var(--text-faint); margin-top: 6px; line-height: 1.5; }
+
+  /* ── honesty callout ─────────────────────────────────── */
+  .callout {
+    border-left: 3px solid var(--evidence);
+    background: var(--surface);
+    border-radius: 0 10px 10px 0;
+    padding: 26px 28px;
+    max-width: 68ch;
+  }
+  .callout .eyebrow::before { background: var(--evidence); }
+  .callout p { color: var(--text-dim); margin: 12px 0 0; }
+  .callout p:first-of-type { margin-top: 14px; }
+  .callout b { color: var(--text); font-weight: 600; }
+
+  /* ── getting started ─────────────────────────────────── */
+  .terminal {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    max-width: 620px;
+  }
+  .terminal .bar {
+    display: flex;
+    gap: 6px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .terminal .bar i {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--border);
+    display: block;
+  }
+  .terminal pre {
+    margin: 0;
+    padding: 20px 22px;
+    font-family: var(--font-mono);
+    font-size: 0.86rem;
+    line-height: 1.9;
+    color: var(--text);
+    overflow-x: auto;
+  }
+  .terminal .c { color: var(--text-faint); }
+  .terminal .p { color: var(--accent); }
+
+  .start-note {
+    margin-top: 18px;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--text-faint);
+  }
+
+  /* ── footer ──────────────────────────────────────────── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding-block: 40px;
+  }
+  .footer-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--text-faint);
+  }
+  .footer-row a { text-decoration: none; }
+  .footer-row a:hover { color: var(--accent); }
+  .footer-links { display: flex; gap: 20px; }
+
+  /* ── reveal-on-scroll ────────────────────────────────── */
+  .reveal {
+    opacity: 0;
+    transform: translateY(14px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+  .reveal.in { opacity: 1; transform: translateY(0); }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { opacity: 1; transform: none; transition: none; }
+  }
+</style>
+
+<header class="site-nav">
+  <div class="wrap">
+    <a class="brand" href="#top">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+        <circle cx="5" cy="6" r="2.4" />
+        <circle cx="19" cy="6" r="2.4" />
+        <circle cx="12" cy="18" r="2.4" />
+        <path d="M7 7.2 L10.2 16.2 M17 7.2 L13.8 16.2 M7.4 6 H16.6" stroke-opacity="0.55" />
+      </svg>
+      ContextSource
+    </a>
+    <nav class="links">
+      <a href="#model">모델</a>
+      <a href="#features">기능</a>
+      <a href="#architecture">아키텍처</a>
+      <a href="#quality">품질</a>
+      <a class="gh" href="https://github.com/peterica/context-source" target="_blank" rel="noopener noreferrer">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <div class="wrap">
+      <div class="hero-inner">
+        <span class="eyebrow">Code Relationship Analyzer · 로컬 실행 · MIT</span>
+        <h1>코드를, 파일이 아니라<br /><em>관계</em>로 읽는다.</h1>
+        <p class="lede">
+          ContextSource는 TypeScript 소스를 <b>Entity · Relationship · Evidence</b> 그래프로 변환합니다.
+          모든 관계는 코드 근거(Evidence) 없이는 저장조차 되지 않고, 사람이 쓰는 Web UI와 AI 에이전트가 붙는
+          MCP 서버가 정확히 같은 그래프를 봅니다.
+        </p>
+        <div class="cta-row">
+          <button class="btn-terminal" id="copy-cmd" type="button">
+            <span class="prompt">$</span>
+            <span class="mono">docker compose up --build</span>
+            <span class="copy-state" id="copy-state">복사</span>
+          </button>
+          <a class="link-arrow" href="https://github.com/peterica/context-source" target="_blank" rel="noopener noreferrer">GitHub에서 보기 →</a>
+        </div>
+      </div>
+
+      <div class="demo reveal" id="demo">
+        <div class="demo-head">
+          <span class="eyebrow">실제로 만들어지는 그래프 한 조각</span>
+          <div class="demo-legend">
+            <span><i class="swatch" style="background:var(--static-ok)"></i>static</span>
+            <span><i class="swatch" style="background:var(--evidence)"></i>inferred</span>
+            <span class="mono" style="color:var(--text-faint)">아래 칩을 눌러 근거(Evidence)를 확인하세요</span>
+          </div>
+        </div>
+        <div class="demo-body">
+          <div class="graph-stage">
+            <canvas id="graph-canvas" role="img" aria-label="예시 TypeScript 프로젝트의 Entity-Relationship 그래프. 아래 목록의 버튼으로 각 관계를 선택할 수 있습니다."></canvas>
+          </div>
+          <div class="evidence-side">
+            <div class="evidence-panel" id="evidence-panel" aria-live="polite"></div>
+            <div class="edge-list" id="edge-list" role="group" aria-label="관계 선택"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="problem">
+    <div class="wrap">
+      <div class="problem-grid reveal">
+        <div>
+          <span class="eyebrow">문제의식</span>
+          <h2 style="margin-top:14px">"정의로 이동"은 관계를 보여주지 않는다</h2>
+          <div class="prose">
+            <p>
+              IDE의 참조 찾기와 <code>grep</code>은 코드가 어디서 <em>등장하는지</em>는 알려주지만, 그 등장이
+              얼마나 확실한지, 왜 연결됐다고 판단했는지는 답하지 않습니다. PR을 검토하거나 AI 에이전트에게
+              "이 함수를 고치면 무엇이 흔들리는가"를 물을 때 필요한 건 텍스트 매칭이 아니라, 근거를 가진
+              구조화된 관계입니다.
+            </p>
+            <p>
+              ContextSource는 소스를 정적으로 분석해 Entity(코드의 명사) · Relationship(코드의 동사) ·
+              Evidence(그 관계가 실재한다는 증거)로 바꾸고, 이 그래프를 사람과 AI가 같은 Query 계층으로 조회합니다.
+            </p>
+          </div>
+        </div>
+        <div class="compare-card">
+          <div class="row"><span class="tag">grep</span><span class="no">텍스트 매칭 — 구조 모름, 근거 없음</span></div>
+          <div class="row"><span class="tag">참조 찾기</span><span class="no">occurrence 목록 — 신뢰도 구분 없음</span></div>
+          <div class="row"><span class="tag">ContextSource</span><span class="yes">Entity·Relationship·Evidence — static/inferred 신뢰도 + 근거 코드</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="model">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">핵심 모델</span>
+        <h2>세 가지 개념으로 코드 전체를 표현한다</h2>
+        <p>새 개념을 늘리지 않는다 — Entity 6종, Relationship 5종, 그리고 그 둘을 잇는 Evidence 하나로 충분하다.</p>
+      </div>
+      <div class="model-grid reveal">
+        <div class="model-card">
+          <div class="glyph">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="2" /></svg>
+          </div>
+          <h3>Entity</h3>
+          <p>코드의 명사. 파일·클래스·인터페이스·함수·메서드, 그리고 프로젝트 밖 패키지를 하나로 접은 External Module.</p>
+          <div class="taglist">
+            <span>file</span><span>class</span><span>interface</span><span>function</span><span>method</span><span>external_module</span>
+          </div>
+        </div>
+        <div class="model-card">
+          <div class="glyph">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12h16M14 6l6 6-6 6" /></svg>
+          </div>
+          <h3>Relationship</h3>
+          <p>코드의 동사. 확정된(static) 관계와 규칙으로 추론한(inferred, 낮은 confidence) 관계를 구분해 저장한다.</p>
+          <div class="taglist">
+            <span>DECLARES</span><span>IMPORTS</span><span>CALLS</span><span>IMPLEMENTS</span><span>EXTENDS</span>
+          </div>
+        </div>
+        <div class="model-card">
+          <div class="glyph">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 4h9l5 5v11a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z" /><path d="M9 13h6M9 17h6" /></svg>
+          </div>
+          <h3>Evidence</h3>
+          <p>그 관계가 실재한다는 증거 — 파일:라인과 코드 스니펫. 스키마 수준에서 Evidence 없는 Relationship은 저장 자체가 불가능하다.</p>
+          <div class="taglist">
+            <span>file:line</span><span>snippet</span><span>revision</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">기능</span>
+        <h2>그래프 위에서 실제로 무엇을 할 수 있나</h2>
+      </div>
+      <div class="feature-grid reveal">
+        <div class="feature">
+          <span class="num">01</span>
+          <h3>변경 영향 분석</h3>
+          <p>Entity 하나를 바꾸면 무엇이 영향받는지, 후보를 랭킹·이유·경로·신뢰도와 함께 보여준다. Git diff와 연결해 "이번 커밋에서 뭘 검토해야 하는가"까지 답한다.</p>
+          <div class="detail">직접 영향 → 간접 영향 → 관련 테스트로 보이는 파일 순서로 정리</div>
+        </div>
+        <div class="feature">
+          <span class="num">02</span>
+          <h3>Git Diff 기반 증분 분석</h3>
+          <p>바뀐 파일과 그 역방향 의존 파일만 다시 분석한다. 28만 줄 규모 실측에서 전체 재분석 3.7–4.1초, 15개 파일 변경 후 증분 재분석 3.5초.</p>
+          <div class="detail">역방향 import 전이적 폐포까지 추적 — 2-hop 이상 떨어진 재분석 대상도 놓치지 않음</div>
+        </div>
+        <div class="feature">
+          <span class="num">03</span>
+          <h3>정직한 신뢰도</h3>
+          <p>확정된 관계(static)와 추론된 관계(inferred)를 confidence로 구분하고, 그마저 확정하지 못한 참조는 버리지 않고 "사각지대"로 따로 기록한다.</p>
+          <div class="detail">false positive를 만들 바엔 "모른다"고 말한다 — 그래프가 완전하다고 오해하게 두지 않는다</div>
+        </div>
+        <div class="feature">
+          <span class="num">04</span>
+          <h3>자동 감지 프로젝트 카탈로그</h3>
+          <p><code>package.json</code>을 읽어 기술 스택을 자동 태깅하고, 태그 교집합만으로 유사 프로젝트를 찾는다 — 임베딩도, Vector Search도 쓰지 않는다.</p>
+          <div class="detail">코드 관계 그래프의 보조 기능으로 의도적으로 얕게 유지 — 카탈로그 제품이 되려는 게 아니다</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="shared-context">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">Shared Context</span>
+        <h2>사람과 AI가 서로 다른 그래프를 상상하지 않는다</h2>
+      </div>
+      <div class="flow reveal">
+        <span class="box">TypeScript 소스</span>
+        <span class="arrow">→</span>
+        <span class="box core">Query 계층 / SQLite</span>
+        <span class="arrow">→</span>
+        <div class="fan">
+          <span class="box">Web UI · 사람</span>
+          <span class="box">MCP 서버 · AI 에이전트</span>
+        </div>
+      </div>
+      <div class="shared-note reveal">
+        <span class="mark">＝</span>
+        <p style="color:var(--text-dim); margin:0;">
+          Web UI를 보는 개발자와 MCP로 붙은 AI 에이전트는 같은 Query 함수, 같은 SQLite 데이터를 조회합니다.
+          AI가 보는 "영향 범위"와 사람이 화면에서 보는 "영향 범위"는 항상 같은 계산 결과입니다.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section id="architecture">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">아키텍처</span>
+        <h2>4개 계층, 외부 서비스 의존 없음</h2>
+        <p>소스 코드는 로컬을 떠나지 않는다 — 별도 그래프 DB나 외부 API 호출이 없다.</p>
+      </div>
+      <div class="stack reveal">
+        <div class="layer">
+          <div class="step">01 · 분석</div>
+          <h4>TypeScript Compiler API</h4>
+          <p>AST와 TypeChecker로 Entity/Relationship을 추출. static/inferred를 여기서 판정한다.</p>
+        </div>
+        <div class="layer">
+          <div class="step">02 · 저장</div>
+          <h4>SQLite (내장)</h4>
+          <p>Node 22.5+의 <code>node:sqlite</code> 내장 모듈. 별도 DB 프로세스나 서버가 필요 없다.</p>
+        </div>
+        <div class="layer">
+          <div class="step">03 · 조회</div>
+          <h4>HTTP API</h4>
+          <p>Express 기반 Query API. 전체 그래프 덤프 없이 항상 범위가 있는 조회만 제공한다.</p>
+        </div>
+        <div class="layer">
+          <div class="step">04 · 소비</div>
+          <h4>Web UI · MCP</h4>
+          <p>React+Cytoscape 웹 화면과, AI 에이전트를 위한 읽기 전용 MCP(stdio) 서버.</p>
+        </div>
+      </div>
+      <p class="req-note">Node.js <code>≥ 22.5.0</code> · SQLite 파일 하나 · Docker Compose 또는 <code>make</code>로 로컬 기동</p>
+    </div>
+  </section>
+
+  <section id="quality">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">품질</span>
+        <h2>주장이 아니라 실측</h2>
+        <p>골든 fixture 회귀 테스트와, 실제 오픈소스 프로젝트(typeorm, 약 28만 줄)를 등록해 측정한 수치입니다.</p>
+      </div>
+      <div class="quality-panel reveal">
+        <div class="bar"><span class="dot"></span>measured — 2026-08-12</div>
+        <div class="stat-grid">
+          <div class="stat">
+            <div class="n">216</div>
+            <div class="l">자동 테스트 — 골든 fixture 회귀 하네스 포함</div>
+          </div>
+          <div class="stat">
+            <div class="n">285,676<span class="unit"> LOC</span></div>
+            <div class="l">실측 대상 규모 · 3,245개 파일 (typeorm)</div>
+          </div>
+          <div class="stat">
+            <div class="n">3.7–4.1<span class="unit">s</span></div>
+            <div class="l">전체 인덱싱 시간 — PRD 목표(수 분) 대비 여유 큼</div>
+          </div>
+          <div class="stat">
+            <div class="n">71<span class="unit">ms</span></div>
+            <div class="l">최악 케이스 조회 (depth 3 · 1000노드 서브그래프)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="honest">
+    <div class="wrap">
+      <div class="callout reveal">
+        <span class="eyebrow">있는 그대로</span>
+        <p><b>ContextSource는 단일 작성자가 만든 0일차 프로젝트입니다.</b> Sourcegraph·CodeQL·Joern 같은 수년간 검증된 도구를 흉내 내려는 게 아니라, 로컬에서 곧바로 실행되는 <b>Evidence 기반 TypeScript 변경 영향 탐색기</b>로 시작합니다.</p>
+        <p>모든 설계 결정은 ADR 12건으로 기록되어 있고, 왜 어떤 기능(예: 범용 Query 언어, Vector Search)을 지금 넣지 않았는지도 그대로 남겨둡니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="start">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">시작하기</span>
+        <h2>3줄이면 로컬에서 뜬다</h2>
+      </div>
+      <div class="terminal reveal">
+        <div class="bar" aria-hidden="true"><i></i><i></i><i></i></div>
+        <pre><span class="c">$</span> git clone https://github.com/peterica/context-source
+<span class="c">$</span> cd context-source
+<span class="c">$</span> docker compose up --build
+<span class="c">→</span> <span class="p">http://localhost:9090</span> 에서 Web UI 확인</pre>
+      </div>
+      <p class="start-note">Docker 없이: <code>make setup && make run-api && make run-web</code></p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="footer-row">
+      <span>MIT License · ContextSource</span>
+      <div class="footer-links">
+        <a href="#model">모델</a>
+        <a href="#architecture">아키텍처</a>
+        <a href="https://github.com/peterica/context-source" target="_blank" rel="noopener noreferrer">GitHub</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ---- copy-to-clipboard hero CTA ---- */
+  var copyBtn = document.getElementById("copy-cmd");
+  var copyState = document.getElementById("copy-state");
+  copyBtn.addEventListener("click", function () {
+    var text = "docker compose up --build";
+    var reset = function (label) {
+      copyState.textContent = label;
+      setTimeout(function () { copyState.textContent = "복사"; }, 1800);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(
+        function () { reset("복사됨"); },
+        function () { reset("복사 실패 — 직접 선택해 복사하세요"); }
+      );
+    } else {
+      reset("복사 실패 — 직접 선택해 복사하세요");
+    }
+  });
+
+  /* ---- scroll reveal ----
+     일반적인 스크롤에서는 IntersectionObserver로 서서히 드러나지만, 뷰포트가 문서 전체
+     높이로 순간 리사이즈되는 경우(풀페이지 스크린샷 도구, 일부 접근성/인쇄 도구, 매우 빠른
+     프로그램적 스크롤)에는 교차가 "관찰 시작과 동시에 끝나버려" 트랜지션이 시작도 하기 전에
+     콜백이 씹힐 수 있다 — 실제로 스크린샷 검증 중 이 문제로 본문 섹션이 통째로 비어 보이는
+     걸 발견했다. 애니메이션은 있으면 좋은 정도지 콘텐츠 자체를 숨기는 관문이 되면 안 되므로,
+     일정 시간 뒤에는 무조건 전부 보이게 하는 안전망을 둔다. */
+  var revealEls = document.querySelectorAll(".reveal");
+  var REVEAL_FAILSAFE_MS = 1600;
+  if ("IntersectionObserver" in window && !reduceMotion) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("in");
+          io.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: "0px 0px -40px 0px" });
+    revealEls.forEach(function (el) { io.observe(el); });
+    setTimeout(function () {
+      revealEls.forEach(function (el) { el.classList.add("in"); });
+      io.disconnect();
+    }, REVEAL_FAILSAFE_MS);
+  } else {
+    revealEls.forEach(function (el) { el.classList.add("in"); });
+  }
+
+  /* ---- graph demo data ----
+     실제 제품의 Entity/Relationship 모델을 그대로 반영한 예시 데이터.
+     inferred 예시(handleLogin -> logAttempt)는 실제 analyzer가 검증된 것으로 확인한 패턴만
+     썼다 — "지역 변수에 담은 이름 있는 함수 참조를 호출"하는 형태(packages/core/test/fixtures/
+     callback-hof의 invoke -> greet, confidence 0.8과 동일 패턴). 인터페이스 타입 필드를 통한
+     호출(this.store.save() 같은)은 실제로는 CALLS가 아니라 unresolved_reference로 기록되므로
+     (ADR-0002 §2, ADR-0011) 이 데모에는 넣지 않았다 — Codex 리뷰에서 지적받아 고쳤다.
+     좌표는 0..1 비율 (캔버스 리사이즈에 대응). */
+  var NODES = [
+    { id: "api",      label: "api-handler.ts",     kind: "file",      file: "api-handler.ts", x: 0.08, y: 0.13 },
+    { id: "handle",   label: "handleLogin",        kind: "function",  file: "api-handler.ts", x: 0.32, y: 0.08 },
+    { id: "logattempt", label: "logAttempt",        kind: "function",  file: "api-handler.ts", x: 0.32, y: 0.28 },
+    { id: "auth",     label: "auth.ts",             kind: "file",      file: "auth.ts",        x: 0.08, y: 0.48 },
+    { id: "service",  label: "AuthService",         kind: "class",     file: "auth.ts",        x: 0.34, y: 0.46 },
+    { id: "login",    label: "login",               kind: "method",    file: "auth.ts",        x: 0.58, y: 0.30 },
+    { id: "session",  label: "session.ts",          kind: "file",      file: "session.ts",     x: 0.08, y: 0.84 },
+    { id: "store",    label: "SessionStore",        kind: "interface", file: "session.ts",     x: 0.36, y: 0.80 },
+    { id: "memstore", label: "MemorySessionStore",  kind: "class",     file: "session.ts",     x: 0.62, y: 0.90 },
+    { id: "save",     label: "save",                kind: "method",    file: "session.ts",     x: 0.87, y: 0.62 }
+  ];
+
+  var EDGES = [
+    { from: "api", to: "handle", type: "DECLARES", res: "static", conf: 1.0,
+      snippet: "// api-handler.ts\nexport async function handleLogin(req, res) { ... }" },
+    { from: "api", to: "logattempt", type: "DECLARES", res: "static", conf: 1.0,
+      snippet: "// api-handler.ts\nfunction logAttempt(email) { ... }" },
+    { from: "api", to: "auth", type: "IMPORTS", res: "static", conf: 1.0,
+      snippet: "import { AuthService } from './auth';" },
+    { from: "handle", to: "login", type: "CALLS", res: "static", conf: 1.0,
+      snippet: "const session = await authService.login(credentials);" },
+    { from: "handle", to: "logattempt", type: "CALLS", res: "inferred", conf: 0.8,
+      snippet: "const record = logAttempt;\n// ...\nrecord(credentials.email);" },
+    { from: "auth", to: "service", type: "DECLARES", res: "static", conf: 1.0,
+      snippet: "// auth.ts\nexport class AuthService { ... }" },
+    { from: "service", to: "login", type: "DECLARES", res: "static", conf: 1.0,
+      snippet: "class AuthService {\n  async login(credentials) { ... }\n}" },
+    { from: "auth", to: "session", type: "IMPORTS", res: "static", conf: 1.0,
+      snippet: "import { SessionStore, MemorySessionStore } from './session';" },
+    { from: "session", to: "store", type: "DECLARES", res: "static", conf: 1.0,
+      snippet: "// session.ts\nexport interface SessionStore { save(s: Session): void }" },
+    { from: "session", to: "memstore", type: "DECLARES", res: "static", conf: 1.0,
+      snippet: "export class MemorySessionStore implements SessionStore { ... }" },
+    { from: "memstore", to: "store", type: "IMPLEMENTS", res: "static", conf: 1.0,
+      snippet: "class MemorySessionStore implements SessionStore { ... }" },
+    { from: "memstore", to: "save", type: "DECLARES", res: "static", conf: 1.0,
+      snippet: "class MemorySessionStore {\n  save(session) { ... }\n}" }
+  ];
+
+  function cssVar(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+
+  var canvas = document.getElementById("graph-canvas");
+  var ctx = canvas.getContext("2d");
+  var nodeById = {};
+  NODES.forEach(function (n) { nodeById[n.id] = n; });
+
+  var activeIndex = 3; // handleLogin -> login, 기본 선택
+  var hoveredNode = null;
+  var stageW = 0, stageH = 0;
+
+  function sizeCanvas() {
+    var rect = canvas.parentElement.getBoundingClientRect();
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    stageW = rect.width;
+    stageH = rect.height;
+    canvas.width = Math.round(stageW * dpr);
+    canvas.height = Math.round(stageH * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  // 좁은 화면일수록 여백/글자 크기를 줄여 노드·라벨이 겹치지 않게 한다.
+  function graphPad() {
+    return Math.max(24, Math.min(46, stageW * 0.08));
+  }
+  function labelFontSize() {
+    return stageW < 420 ? 9.5 : 11;
+  }
+
+  function pos(node) {
+    var pad = graphPad();
+    return {
+      x: pad + node.x * (stageW - pad * 2),
+      y: pad + node.y * (stageH - pad * 2)
+    };
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, stageW, stageH);
+
+    var borderColor = cssVar("--border");
+    var textDim = cssVar("--text-dim");
+    var accent = cssVar("--accent");
+    var evidence = cssVar("--evidence");
+    var staticOk = cssVar("--static-ok");
+    var surface = cssVar("--surface");
+
+    // edges — 색은 항상 resolution을 뜻한다(범례와 일치): static=초록, inferred=호박색.
+    // 선택 상태는 색을 바꾸지 않고 굵기+옅은 글로우로만 표시한다.
+    EDGES.forEach(function (e, i) {
+      var a = pos(nodeById[e.from]);
+      var b = pos(nodeById[e.to]);
+      var isActive = i === activeIndex;
+      var resColor = e.res === "static" ? staticOk : evidence;
+
+      if (isActive) {
+        ctx.save();
+        ctx.shadowColor = resColor;
+        ctx.shadowBlur = 8;
+      }
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.lineWidth = isActive ? 2.6 : 1.3;
+      ctx.strokeStyle = resColor;
+      ctx.globalAlpha = isActive ? 1 : 0.55;
+      ctx.setLineDash(e.res === "inferred" ? [5, 4] : []);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
+      if (isActive) ctx.restore();
+
+      // arrowhead toward target
+      var angle = Math.atan2(b.y - a.y, b.x - a.x);
+      var tx = b.x - Math.cos(angle) * 15;
+      var ty = b.y - Math.sin(angle) * 15;
+      ctx.beginPath();
+      ctx.moveTo(tx, ty);
+      ctx.lineTo(tx - 7 * Math.cos(angle - 0.4), ty - 7 * Math.sin(angle - 0.4));
+      ctx.lineTo(tx - 7 * Math.cos(angle + 0.4), ty - 7 * Math.sin(angle + 0.4));
+      ctx.closePath();
+      ctx.globalAlpha = isActive ? 1 : 0.55;
+      ctx.fillStyle = resColor;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    });
+
+    // nodes
+    NODES.forEach(function (n) {
+      var p = pos(n);
+      var isHover = hoveredNode === n.id;
+      var isEndpoint = EDGES[activeIndex].from === n.id || EDGES[activeIndex].to === n.id;
+      var r = isEndpoint ? 7.5 : 6;
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+      ctx.fillStyle = surface;
+      ctx.fill();
+      ctx.lineWidth = isEndpoint ? 2.2 : 1.4;
+      ctx.strokeStyle = isEndpoint ? accent : (isHover ? textDim : borderColor);
+      ctx.stroke();
+
+      var fontSize = labelFontSize();
+      var labelGap = fontSize + 7;
+      ctx.font = "600 " + fontSize + "px " + cssVar("--font-mono");
+      ctx.fillStyle = isEndpoint ? cssVar("--text") : textDim;
+      ctx.textBaseline = "middle";
+      var labelY = n.y > 0.6 ? p.y + labelGap : p.y - labelGap;
+      ctx.textAlign = p.x > stageW * 0.7 ? "right" : (p.x < stageW * 0.3 ? "left" : "center");
+      ctx.fillText(n.label, p.x, labelY);
+    });
+  }
+
+  function renderPanel() {
+    var e = EDGES[activeIndex];
+    var from = nodeById[e.from], to = nodeById[e.to];
+    var panel = document.getElementById("evidence-panel");
+    var resBadge = e.res === "static"
+      ? '<span class="badge static">static</span>'
+      : '<span class="badge inferred">inferred</span>';
+    panel.innerHTML =
+      '<div class="rel-line">' +
+        '<span class="src">' + from.label + '</span>' +
+        '<span class="badge type">' + e.type + '</span>' +
+        '<span class="arrow">→</span>' +
+        '<span class="tgt">' + to.label + '</span>' +
+      '</div>' +
+      '<div>' + resBadge + ' <span style="font-family:var(--font-mono);font-size:0.78rem;color:var(--text-faint)">confidence ' + e.conf.toFixed(1) + '</span></div>' +
+      '<div class="evidence-meta">' + from.file + ' · Evidence</div>' +
+      '<pre class="evidence-snippet">' + e.snippet.replace(/&/g, "&amp;").replace(/</g, "&lt;") + '</pre>' +
+      (e.res === "inferred"
+        ? '<p class="evidence-note">지역 변수로 참조를 한 번 거쳐 타입 시그니처로 역추적된 관계라 confidence가 1.0보다 낮습니다.</p>'
+        : '<p class="evidence-note">TypeChecker로 대상이 완전히 확정된 관계입니다.</p>');
+  }
+
+  var chipButtons = [];
+
+  // 버튼은 딱 한 번만 만든다 — 클릭할 때마다 DOM을 통째로 지우고 다시 만들면 방금 누른(포커스
+  // 있는) 버튼 자체가 사라져 키보드 사용자가 다음 항목으로 Tab/화살표 이동을 이어갈 수 없다
+  // (Codex 리뷰에서 지적받은 실제 버그). 선택 상태는 aria-pressed/클래스만 갱신한다.
+  function buildChips() {
+    var list = document.getElementById("edge-list");
+    list.innerHTML = "";
+    chipButtons = EDGES.map(function (e, i) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "edge-chip";
+      btn.textContent = nodeById[e.from].label + " → " + nodeById[e.to].label;
+      btn.addEventListener("click", function () {
+        activeIndex = i;
+        updateChipStates();
+        renderPanel();
+        draw();
+      });
+      list.appendChild(btn);
+      return btn;
+    });
+    updateChipStates();
+  }
+
+  function updateChipStates() {
+    chipButtons.forEach(function (btn, i) {
+      btn.setAttribute("aria-pressed", i === activeIndex ? "true" : "false");
+    });
+  }
+
+  function hitNode(mx, my) {
+    for (var i = 0; i < NODES.length; i++) {
+      var p = pos(NODES[i]);
+      if (Math.hypot(mx - p.x, my - p.y) < 12) return NODES[i].id;
+    }
+    return null;
+  }
+
+  canvas.addEventListener("pointermove", function (evt) {
+    var rect = canvas.getBoundingClientRect();
+    var mx = evt.clientX - rect.left;
+    var my = evt.clientY - rect.top;
+    var found = hitNode(mx, my);
+    if (found !== hoveredNode) {
+      hoveredNode = found;
+      draw();
+    }
+  });
+  canvas.addEventListener("pointerleave", function () {
+    if (hoveredNode !== null) { hoveredNode = null; draw(); }
+  });
+
+  function init() {
+    sizeCanvas();
+    buildChips();
+    renderPanel();
+    draw();
+  }
+
+  var resizeQueued = false;
+  function onStageResize() {
+    if (resizeQueued) return;
+    resizeQueued = true;
+    requestAnimationFrame(function () {
+      resizeQueued = false;
+      sizeCanvas();
+      draw();
+    });
+  }
+  window.addEventListener("resize", onStageResize);
+  // 부모 카드 크기만 바뀌는 경우(윈도우 크기는 그대로인데 레이아웃만 바뀌는 경우)도 잡는다.
+  if ("ResizeObserver" in window) {
+    new ResizeObserver(onStageResize).observe(canvas.parentElement);
+  }
+
+  var mq = window.matchMedia("(prefers-color-scheme: dark)");
+  if (mq.addEventListener) mq.addEventListener("change", function () { draw(); });
+
+  // 뷰어의 테마 토글은 root에 data-theme을 붙이는 방식이라(artifact-design 규약),
+  // 어떤 이벤트명을 쓰는지 알 수 없으므로 속성 변화를 직접 관찰해 캔버스를 다시 그린다.
+  if ("MutationObserver" in window) {
+    new MutationObserver(function () { draw(); }).observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"]
+    });
+  }
+
+  init();
+})();
+</script>

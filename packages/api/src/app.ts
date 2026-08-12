@@ -2,6 +2,7 @@ import * as path from 'node:path';
 import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 import {
   addTechStackEntry,
+  buildContext,
   computeChangedImpact,
   computeImpact,
   createProject,
@@ -47,10 +48,12 @@ import {
   parseLimit,
   parseMaxCandidates,
   parseMaxNodes,
+  parseMaxSeeds,
   parseOffset,
   parseOptionalString,
   parseProjectId,
   parseResolution,
+  parseTokenBudget,
   parseTypes,
   requireNonEmptyString,
   requireTechStackCategory,
@@ -346,6 +349,28 @@ export function createApp(ctx: AppContext): Express {
         types: parseTypes(req.query.types),
         resolution: parseResolution(req.query.resolution),
         maxCandidates: parseMaxCandidates(req.query.maxCandidates),
+      });
+      res.json(result);
+    }),
+  );
+
+  // Context Builder — ADR-0012 (BENCHMARK.md 5.6). search_entities로 seed를 찾고 다중 소스·
+  // 양방향 BFS로 확장한 뒤 관계 우선순위 + 토큰 예산으로 추린다. AI 클라이언트가 자연어
+  // 질문에서 뽑아낸 검색어를 query로 넘긴다 — 서버가 질문 자체를 해석하지 않는다.
+  projectRouter.get(
+    '/context',
+    asyncHandler((req, res) => {
+      const project = requireProject(ctx.db, req.params.projectId!);
+      const query = requireNonEmptyString(req.query.query, 'query');
+      const result = buildContext(ctx.db, {
+        projectId: project.id,
+        query,
+        tokenBudget: parseTokenBudget(req.query.tokenBudget),
+        maxSeeds: parseMaxSeeds(req.query.maxSeeds),
+        depth: parseDepth(req.query.depth, 3),
+        types: parseTypes(req.query.types),
+        resolution: parseResolution(req.query.resolution),
+        includeSnippets: parseBoolean(req.query.includeSnippets, true),
       });
       res.json(result);
     }),

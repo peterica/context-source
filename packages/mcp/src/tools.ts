@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  buildContext,
   getEntity,
   getRelationshipCounts,
   getSubgraph,
@@ -33,8 +34,9 @@ export interface ToolContext {
 }
 
 /**
- * API.md 3장 MCP Tools — search_entities / get_entity / get_callers / get_callees / get_subgraph.
- * 모두 읽기 전용이며 HTTP API와 동일한 core Query 서비스를 공유한다 (Shared Context 원칙).
+ * API.md 3장 MCP Tools — search_entities / get_entity / get_callers / get_callees / get_subgraph /
+ * build_context(ADR-0012). 모두 읽기 전용이며 HTTP API와 동일한 core Query 서비스를 공유한다
+ * (Shared Context 원칙).
  */
 export function buildToolDefinitions(ctx: ToolContext) {
   return {
@@ -136,6 +138,47 @@ export function buildToolDefinitions(ctx: ToolContext) {
           types: args.types,
           resolution: args.resolution,
           maxNodes: args.maxNodes ?? 200,
+          includeSnippets: args.includeSnippets ?? true,
+        });
+        return json(result);
+      },
+    },
+
+    build_context: {
+      title: 'Build ranked, token-budgeted context around a search term',
+      description:
+        'search_entities와 같은 방식으로 검색어에 맞는 seed Entity를 찾고, 거기서 양방향으로 ' +
+        '뻗어나가며 발견한 Entity를 관계 우선순위(CALLS>IMPLEMENTS/EXTENDS>IMPORTS>DECLARES)와 ' +
+        'hopDepth·confidence로 랭킹해 반환한다(ADR-0012, BENCHMARK.md 5.6). 각 항목은 왜 포함됐는지 ' +
+        '설명하는 reason 문장과 그 근거(Evidence)를 함께 준다. query는 자연어 질문 자체가 아니라 ' +
+        '그 질문에서 뽑아낸 검색어다 — 서버는 질문을 해석하지 않는다. tokenBudget(문자수/4 근사치)을 ' +
+        '넘기 전까지 우선순위 순서대로 채우고, 넘으면 그 자리에서 멈춘다(truncated:true).',
+      inputSchema: {
+        query: z.string().describe('seed Entity를 찾을 검색어(이름 부분 일치)'),
+        tokenBudget: z.number().int().min(100).max(20000).optional().describe('기본 4000, 최대 20000'),
+        maxSeeds: z.number().int().min(1).max(20).optional().describe('기본 5, 최대 20'),
+        depth: z.number().int().min(0).max(5).optional().describe('기본 3, 최대 5'),
+        types: z.array(z.enum(RELATIONSHIP_TYPES)).optional().describe('기본 5종 전부(DECLARES 포함)'),
+        resolution: z.enum(RESOLUTIONS).optional(),
+        includeSnippets: z.boolean().optional().describe('기본 true. false면 응답 크기를 줄인다'),
+      },
+      handler: (args: {
+        query: string;
+        tokenBudget?: number;
+        maxSeeds?: number;
+        depth?: number;
+        types?: RelationshipType[];
+        resolution?: Resolution;
+        includeSnippets?: boolean;
+      }) => {
+        const result = buildContext(ctx.db, {
+          projectId: ctx.projectId,
+          query: args.query,
+          tokenBudget: args.tokenBudget ?? 4000,
+          maxSeeds: args.maxSeeds ?? 5,
+          depth: args.depth ?? 3,
+          types: args.types,
+          resolution: args.resolution,
           includeSnippets: args.includeSnippets ?? true,
         });
         return json(result);

@@ -19,7 +19,9 @@ import { diffNameStatus, resolveGitRoot, toProjectRelative } from '../incrementa
 // "이게 어디 소속인가"라 impact 의미와 맞지 않는다. types 파라미터로 명시하면 포함할 수 있다.
 const DEFAULT_IMPACT_TYPES: RelationshipType[] = ['IMPORTS', 'CALLS', 'IMPLEMENTS', 'EXTENDS'];
 
-const REASON_TEMPLATES: Record<RelationshipType, (source: string, target: string) => string> = {
+// ADR-0012의 context-builder.ts도 이 템플릿을 그대로 재사용한다 — 관계 타입별 "이유" 문장을
+// 두 곳에서 따로 만들지 않기 위해 export한다.
+export const REASON_TEMPLATES: Record<RelationshipType, (source: string, target: string) => string> = {
   CALLS: (s, t) => `${s}가 ${t}를 호출합니다`,
   IMPORTS: (s, t) => `${s}가 ${t}를 import합니다`,
   IMPLEMENTS: (s, t) => `${s}가 ${t}를 구현합니다`,

@@ -56,6 +56,16 @@ export function parseMaxNodes(raw: unknown): number {
   return parseIntParam(raw, 'maxNodes', 200, 1, 1000);
 }
 
+// ADR-0012 — Context Builder. 문자 수 기반 근사치(estimateTokens)와 짝지어 쓰는 한도라
+// "토큰" 자체의 정밀한 상한이 아니라 응답 크기를 다루기 쉬운 범위로 잡아두는 안전장치다.
+export function parseTokenBudget(raw: unknown): number {
+  return parseIntParam(raw, 'tokenBudget', 4000, 100, 20000);
+}
+
+export function parseMaxSeeds(raw: unknown): number {
+  return parseIntParam(raw, 'maxSeeds', 5, 1, 20);
+}
+
 export function parseDirection(raw: unknown, def: (typeof DIRECTIONS)[number] = 'both') {
   if (raw === undefined) return def;
   if (!DIRECTIONS.includes(raw as (typeof DIRECTIONS)[number])) {

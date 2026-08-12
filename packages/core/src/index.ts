@@ -69,6 +69,12 @@ export {
   type ChangedImpactCandidate,
 } from './query/impact.js';
 export {
+  buildContext,
+  type ContextBuilderParams,
+  type ContextBuildResult,
+  type ContextItem,
+} from './query/context-builder.js';
+export {
   getProjectStats,
   listInferredRelationships,
   listUnresolvedReferences,

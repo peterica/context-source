@@ -366,6 +366,72 @@ describe('GET /projects/{id}/entities/{encodedId}/impact (ADR-0008)', () => {
   });
 });
 
+describe('GET /projects/{id}/context (ADR-0012)', () => {
+  it('finds a seed by name and returns ranked, bidirectional context items with a reason and evidence', async () => {
+    const { status, body } = await getJson(`/projects/${PROJECT}/context?query=run`);
+    expect(status).toBe(200);
+    expect(body.seeds.some((e: any) => e.id === symbolEntityId(PROJECT, 'src/usage.ts', 'run'))).toBe(true);
+
+    const identityId = symbolEntityId(PROJECT, 'src/math.ts', 'identity');
+    const identityItem = body.items.find((i: any) => i.entity.id === identityId);
+    expect(identityItem).toBeDefined();
+    expect(identityItem.relationshipType).toBe('CALLS');
+    expect(identityItem.hopDepth).toBe(1);
+    expect(typeof identityItem.reason).toBe('string');
+    expect(identityItem.evidence.length).toBeGreaterThan(0);
+
+    // DECLARES는 기본 포함되지만(impact와 다름) 우선순위가 가장 낮아 CALLS 항목들보다 뒤에 온다.
+    const usageFileId = fileEntityId(PROJECT, 'src/usage.ts');
+    const usageIdx = body.items.findIndex((i: any) => i.entity.id === usageFileId);
+    expect(usageIdx).toBeGreaterThan(-1);
+    expect(body.items[usageIdx].relationshipType).toBe('DECLARES');
+    expect(usageIdx).toBeGreaterThan(body.items.findIndex((i: any) => i.entity.id === identityId));
+  });
+
+  it('honors tokenBudget and reports truncated', async () => {
+    const { status, body } = await getJson(`/projects/${PROJECT}/context?query=run&tokenBudget=100`);
+    expect(status).toBe(200);
+    expect(body.tokenBudget).toBe(100);
+    expect(body.estimatedTokens).toBeLessThanOrEqual(100);
+  });
+
+  it('honors includeSnippets=false', async () => {
+    const { status, body } = await getJson(`/projects/${PROJECT}/context?query=run&includeSnippets=false`);
+    expect(status).toBe(200);
+    for (const item of body.items) {
+      for (const ev of item.evidence) {
+        expect(ev.snippet).toBe('');
+      }
+    }
+  });
+
+  it('returns an empty, non-truncated result when nothing matches the query', async () => {
+    const { status, body } = await getJson(`/projects/${PROJECT}/context?query=NoSuchSymbolXYZ`);
+    expect(status).toBe(200);
+    expect(body.seeds).toEqual([]);
+    expect(body.items).toEqual([]);
+    expect(body.truncated).toBe(false);
+  });
+
+  it('rejects a missing query parameter', async () => {
+    const { status, body } = await getJson(`/projects/${PROJECT}/context`);
+    expect(status).toBe(400);
+    expect(body.error.code).toBe('INVALID_PARAM');
+  });
+
+  it('rejects depth beyond the documented max (5)', async () => {
+    const { status, body } = await getJson(`/projects/${PROJECT}/context?query=run&depth=6`);
+    expect(status).toBe(400);
+    expect(body.error.code).toBe('INVALID_PARAM');
+  });
+
+  it('rejects tokenBudget outside the documented bounds', async () => {
+    const { status, body } = await getJson(`/projects/${PROJECT}/context?query=run&tokenBudget=50`);
+    expect(status).toBe(400);
+    expect(body.error.code).toBe('INVALID_PARAM');
+  });
+});
+
 describe('2.6 POST /projects/{id}/analysis/runs (full mode)', () => {
   it('triggers a full analysis run and it becomes queryable', async () => {
     const res = await fetch(`${baseUrl}/projects/${PROJECT}/analysis/runs`, {

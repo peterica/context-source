@@ -55,11 +55,11 @@ afterAll(async () => {
 });
 
 describe('MCP server (stdio) — read-only tools over a real analyzed project', () => {
-  it('lists exactly the 5 required tools (API.md §3)', async () => {
+  it('lists exactly the 6 required tools (API.md §3, ADR-0012)', async () => {
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual(
-      ['get_callees', 'get_callers', 'get_entity', 'get_subgraph', 'search_entities'].sort(),
+      ['build_context', 'get_callees', 'get_callers', 'get_entity', 'get_subgraph', 'search_entities'].sort(),
     );
   });
 
@@ -125,5 +125,41 @@ describe('MCP server (stdio) — read-only tools over a real analyzed project', 
     });
     const body = textOf(res as any) as { truncated: boolean };
     expect(body.truncated).toBe(true);
+  });
+
+  it('build_context finds a seed by name and ranks bidirectional context with a reason (ADR-0012)', async () => {
+    const res = await client.callTool({ name: 'build_context', arguments: { query: 'run' } });
+    const body = textOf(res as any) as {
+      seeds: { id: string }[];
+      items: { entity: { name: string }; relationshipType: string; reason: string; evidence: unknown[] }[];
+      estimatedTokens: number;
+      tokenBudget: number;
+      truncated: boolean;
+    };
+    expect(body.seeds.some((s) => s.id === symbolEntityId(PROJECT, 'src/usage.ts', 'run'))).toBe(true);
+    const identityItem = body.items.find((i) => i.entity.name === 'identity');
+    expect(identityItem).toBeDefined();
+    expect(identityItem?.relationshipType).toBe('CALLS');
+    expect(identityItem?.reason.length).toBeGreaterThan(0);
+    expect(identityItem?.evidence.length).toBeGreaterThan(0);
+    expect(body.tokenBudget).toBe(4000);
+  });
+
+  it('build_context tokenBudget acts as a token-budget control (truncated:true)', async () => {
+    const res = await client.callTool({ name: 'build_context', arguments: { query: 'run', tokenBudget: 100 } });
+    const body = textOf(res as any) as { truncated: boolean; estimatedTokens: number };
+    expect(body.truncated).toBe(true);
+    expect(body.estimatedTokens).toBeLessThanOrEqual(100);
+  });
+
+  it('build_context returns an empty result (not an error) when nothing matches the query', async () => {
+    const res = (await client.callTool({
+      name: 'build_context',
+      arguments: { query: 'NoSuchSymbolXYZ' },
+    })) as any;
+    expect(res.isError).toBeFalsy();
+    const body = textOf(res) as { seeds: unknown[]; items: unknown[] };
+    expect(body.seeds).toEqual([]);
+    expect(body.items).toEqual([]);
   });
 });

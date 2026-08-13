@@ -4,6 +4,7 @@ import { formatRevision } from '../format.js';
 import type { Tab } from '../router.js';
 import type { AnalysisRun, Project } from '@contextsource/core';
 import { Overview } from './Overview.js';
+import { StructureTree } from './StructureTree.js';
 import { Explore } from './Explore.js';
 import { Review } from './Review.js';
 import { RunHistory } from './RunHistory.js';
@@ -78,6 +79,9 @@ export function ProjectWorkspace(props: {
           <button className={tab === 'overview' ? 'active' : ''} onClick={() => props.onNavigate('overview')}>
             Overview
           </button>
+          <button className={tab === 'structure' ? 'active' : ''} onClick={() => props.onNavigate('structure')}>
+            구조
+          </button>
           <button className={tab === 'explore' ? 'active' : ''} onClick={() => props.onNavigate('explore')}>
             탐색
           </button>
@@ -118,6 +122,7 @@ export function ProjectWorkspace(props: {
             />
           </div>
         )}
+        {tab === 'structure' && <StructureTree projectId={projectId} onSelectEntity={goToEntity} />}
         {tab === 'explore' && (
           <Explore projectId={projectId} selectedEntityId={selectedEntityId} onSelectEntity={goToEntity} />
         )}

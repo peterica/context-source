@@ -381,7 +381,7 @@ Phase 1에서는 Graph-only로 구현하고 Phase 4에서 Vector Search와 결�
 
 **2026-08-12 해결**: [ADR-0012](./docs/adr/0012-context-builder.md)로 설계·구현했다. 실제로 점검해보니 "seed 추출"(`search_entities`)과 "경로 기반 확장"(`get_subgraph`)은 이미 있었고, 진짜 빠진 건 관계 유형별 우선순위·이유·토큰 예산 pruning이었다. 초안은 `get_subgraph` 위에 얇은 랭킹 계층만 얹으려 했으나 `codex exec` 독립 검토에서 "대표 관계가 실제 발견 경로와 무관할 수 있다"(이유가 거짓일 위험)는 결함을 지적받아, 여러 seed가 동시에 시작하는 전용 양방향 BFS(predecessor 추적)로 다시 설계했다 — `computeImpact`/`getSubgraph` 자체는 건드리지 않았다. 토큰 예산은 실제 토크나이저 없이 문자 수 근사치(`문자수/4`)로, Evidence 중복 제거는 "후보당 발견시킨 관계 하나의 Evidence만 남긴다"로 구체화했다. `GET /projects/{id}/context`(API.md 2.11)와 MCP tool `build_context`(6번째 tool) 양쪽에 공유 core 함수 하나를 노출했고, Web UI 화면은 만들지 않았다(태생적으로 AI 클라이언트용). Phase 4의 Vector Search 결합은 여전히 다루지 않는다. IMPLEMENTATION_REPORT.md §20 참고.
 
-### 5.7 P1 — 작업 중심·계층형 시각화
+### 5.7 P1 — [해결됨] 작업 중심·계층형 시각화
 
 전체 그래프 화면 하나 대신 최소 세 가지 뷰를 제공한다.
 
@@ -392,6 +392,8 @@ Phase 1에서는 Graph-only로 구현하고 Phase 4에서 Vector Search와 결�
 | 변경 보기 | Git diff에 포함된 Entity | 영향 후보와 검토 경로 확인 |
 
 File → Class → Method로 점진적으로 펼치는 계층형 탐색을 적용한다.
+
+**2026-08-13 해결**: 구현에 앞서 사용자 요청으로 유사 오픈소스를 리서치했다(`codex exec --search`, [docs/research/similar-projects.md](./docs/research/similar-projects.md)) — 이 항목 자체보다는 프로젝트의 전반적 포지셔닝(그래프+confidence+evidence+unresolved 격리) 독자성을 점검하는 목적이었고, 결론은 "정확히 같은 조합은 못 찾았다"였다. [ADR-0013](./docs/adr/0013-task-oriented-views.md)으로 설계·구현했다. 실제로 점검해보니 세 뷰 중 둘은 이미 있었다 — "변경 보기"는 기존 `impact` 탭(ADR-0008)이 그대로 충족했고, "호출 보기"는 새 화면이 아니라 기존 `ImpactGraph`의 초기 방향/타입을 Entity 종류에 따라 프리셋(function/method→CALLS+양방향, class/interface/file→DECLARES/EXTENDS/IMPLEMENTS+out)하는 것으로 충분했다. 진짜 새로 만든 건 "구조 보기" 하나뿐이다 — File 목록을 루트로 `GET /entities/{id}/relationships?direction=out&types=DECLARES`를 지연 호출하며 펼치는 범용 재귀 트리(`StructureTree.tsx`, 새 탭). 3단으로 깊이를 강제하지 않았다 — 분석기가 중첩 함수도 DECLARES로 기록하므로 실제 깊이가 3단을 넘을 수 있기 때문이다. core/API/MCP 변경은 전혀 없다 — 기존 endpoint만 재사용했다. IMPLEMENTATION_REPORT.md §21 참고.
 
 ### 5.8 P2 — SCIP 호환성 검토
 
@@ -530,7 +532,7 @@ Web UI(React+Cytoscape.js)에서 키보드 내비게이션, 스크린리더, 색
 
 Sourcegraph의 검색 규모, Copilot의 AI 범용성, Joern의 분석 깊이를 그대로 따라가기보다는 **로컬 TypeScript 프로젝트의 변경 영향을 근거와 함께 설명하는 공통 Context 계층**에 집중하는 것이 가장 선명한 차별화 전략이다.
 
-> **2026-08-11 주석 — 권장 순서와 실제 실행의 괴리**: 실제로는 MVP(1~5에 해당하는 Phase 1) 완료 직후 6·7이 아니라 ROADMAP.md Phase 2 "Project Knowledge Base"(Project Entity·기술 스택 관리·유사 프로젝트 탐색)에 먼저 착수했다 — 이 문서의 P0 항목인 5.1(영향 분석 의미 정의)~5.4(품질 측정 체계)는 그 시점엔 여전히 미착수 상태였다(IMPLEMENTATION_REPORT.md §12~14 참고). 이는 사용자가 명시적으로 Phase 2를 지시했기 때문이며 그 자체로 잘못된 선택은 아니지만, 이 벤치마크 문서가 제안한 우선순위가 실제 의사결정에 그대로 반영되지는 않았다는 사실은 솔직하게 기록해야 한다 — 벤치마크 문서의 실효성을 스스로 점검하는 차원에서 남긴다. **2026-08-12 갱신**: Phase 2 완결과 실제 규모 검증(5.11) 이후 5.1~5.4가 모두 [해결됨]으로 닫혔다(ADR-0008 + 골든 fixture 회귀 하네스, IMPLEMENTATION_REPORT.md §16~17). 이어서 2026-08-11 재검토가 새로 추가한 P0 항목 중 남아있던 5.9(카탈로그 포지셔닝)·5.12(보안 로드맵)도 [해결됨]으로 닫았다(ADR-0009, ADR-0010, IMPLEMENTATION_REPORT.md §18) — 이 문서가 지금까지 제안한 P0 항목(5.1~5.4, 5.9~5.12) 전부가 닫힌 상태다. 남은 미해결 항목은 P1/P2뿐이다(5.5~5.8, 5.16, 5.20).
+> **2026-08-11 주석 — 권장 순서와 실제 실행의 괴리**: 실제로는 MVP(1~5에 해당하는 Phase 1) 완료 직후 6·7이 아니라 ROADMAP.md Phase 2 "Project Knowledge Base"(Project Entity·기술 스택 관리·유사 프로젝트 탐색)에 먼저 착수했다 — 이 문서의 P0 항목인 5.1(영향 분석 의미 정의)~5.4(품질 측정 체계)는 그 시점엔 여전히 미착수 상태였다(IMPLEMENTATION_REPORT.md §12~14 참고). 이는 사용자가 명시적으로 Phase 2를 지시했기 때문이며 그 자체로 잘못된 선택은 아니지만, 이 벤치마크 문서가 제안한 우선순위가 실제 의사결정에 그대로 반영되지는 않았다는 사실은 솔직하게 기록해야 한다 — 벤치마크 문서의 실효성을 스스로 점검하는 차원에서 남긴다. **2026-08-12 갱신**: Phase 2 완결과 실제 규모 검증(5.11) 이후 5.1~5.4가 모두 [해결됨]으로 닫혔다(ADR-0008 + 골든 fixture 회귀 하네스, IMPLEMENTATION_REPORT.md §16~17). 이어서 2026-08-11 재검토가 새로 추가한 P0 항목 중 남아있던 5.9(카탈로그 포지셔닝)·5.12(보안 로드맵)도 [해결됨]으로 닫았다(ADR-0009, ADR-0010, IMPLEMENTATION_REPORT.md §18) — 이 문서가 지금까지 제안한 P0 항목(5.1~5.4, 5.9~5.12) 전부가 닫힌 상태다. 남은 미해결 항목은 P1/P2뿐이다(5.5~5.8, 5.16, 5.20). **2026-08-13 갱신**: 5.5(ADR-0011)·5.6(ADR-0012)·5.7(ADR-0013)이 순차로 닫혔다 — 남은 건 5.8(SCIP 호환성 검토)·5.16(배포/운영 성숙도, 부분 해결)·5.20뿐이다.
 
 ---
 
@@ -559,3 +561,4 @@ MVP는 범용 코드 인텔리전스 플랫폼보다 **Evidence 기반 TypeScrip
 | 2026-08-12 | 0.5 | 5.9(카탈로그 포지셔닝)·5.12(보안 로드맵)를 [해결됨]으로 표시 — ADR-0009(카탈로그는 코드 관계 그래프의 보조 기능으로 의도적으로 얕게 유지, Backstage와 정면 경쟁하지 않음)와 ADR-0010(로컬 단일 사용자 전제의 유효기간 + 옵트인 API key 보호장치)을 확정하고 구현했다. README.md/PRD.md 포지셔닝 문구, API.md 1.4, openapi.yaml `ApiKeyAuth` 스킴(부수적으로 기존 `security-defined` 경고 23건도 함께 해소), docker-compose.yml에 반영. 이로써 이 문서가 지금까지 제안한 P0 항목(5.1~5.4, 5.9~5.12) 전부가 닫혔다 — §6 주석 갱신. IMPLEMENTATION_REPORT.md §18 참고 |
 | 2026-08-12 | 0.6 | 5.5(정밀 분석 실패 시 폴백 모델)를 [해결됨]으로 표시 — 원안(`resolution: 'unresolved'`)은 `relationship.target_id NOT NULL` 제약과 충돌해 그대로 채택하지 않고, [ADR-0011](./docs/adr/0011-unresolved-references.md)로 Relationship이 아닌 별도의 `unresolved_reference` 진단 테이블을 설계·구현했다. `GET /projects/{id}/stats` 집계 확장, `GET /projects/{id}/unresolved-references` 신규, Web UI "검토" 탭 확장(새 탭 없음). P1/P2 항목을 하나씩 순차 진행하기로 한 것 중 첫 항목. IMPLEMENTATION_REPORT.md §19 참고 |
 | 2026-08-12 | 0.7 | 5.6(Graph-only Context Builder)을 [해결됨]으로 표시 — [ADR-0012](./docs/adr/0012-context-builder.md). 초안(`getSubgraph` 재사용)이 `codex exec` 독립 검토에서 "이유가 실제 발견 경로와 다를 수 있다"는 결함을 지적받아, 다중 seed 동시 시작 양방향 BFS(predecessor 추적)로 재설계했다 — `computeImpact`/`getSubgraph`는 건드리지 않았다. `GET /projects/{id}/context`(API.md 2.11) + MCP tool `build_context`(6번째) 양쪽에 공유 core 함수 하나를 노출, Web UI는 만들지 않음. IMPLEMENTATION_REPORT.md §20 참고 |
+| 2026-08-13 | 0.8 | 구현 착수 전 사용자 요청으로 유사 오픈소스 리서치를 진행([docs/research/similar-projects.md](./docs/research/similar-projects.md), `codex exec --search` + 교차검증) — "정확히 같은 조합(그래프+resolution 명시+evidence+unresolved 격리+MCP+git diff 증분)을 갖춘 프로젝트는 못 찾았다"는 결론. 이어서 5.7(작업 중심·계층형 시각화)을 [해결됨]으로 표시 — [ADR-0013](./docs/adr/0013-task-oriented-views.md). 세 뷰 중 "변경 보기"는 기존 `impact` 탭이, "호출 보기"는 기존 `ImpactGraph`의 Entity 종류별 초기 프리셋이 충족했고, 새로 만든 건 File→DECLARES 지연 확장 트리("구조 보기", `StructureTree.tsx`) 하나뿐이다. core/API/MCP 변경 없음(기존 endpoint 재사용). IMPLEMENTATION_REPORT.md §21 참고 |

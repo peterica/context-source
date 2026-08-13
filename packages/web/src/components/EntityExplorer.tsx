@@ -110,6 +110,7 @@ export function EntityExplorer(props: {
       <ImpactGraph
         projectId={props.projectId}
         rootId={entity.id}
+        rootKind={entity.kind}
         onSelectNode={props.onSelectEntity}
         onSelectEdge={(rel, sourceLabel, targetLabel) => setSelectedEdge({ rel, sourceLabel, targetLabel })}
       />

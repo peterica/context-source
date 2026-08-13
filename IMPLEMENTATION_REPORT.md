@@ -478,3 +478,30 @@ ADR-0009·0010(5.9, 5.12) 완료로 이 벤치마크 문서가 제안한 P0 항�
 **총 테스트**: 신규 23개(core context-builder.test.ts 12 + api app.test.ts 7 + mcp mcp.test.ts 4) 포함 전체 스위트 238개(core 156 + api 71 + mcp 11) 통과, typecheck/lint/production build 모두 통과. openapi.yaml `redocly lint` 계속 0 errors.
 
 **의도적으로 하지 않은 것** (ADR-0012 "하지 않는 것" 절 그대로): `computeImpact`/`getSubgraph`의 시그니처나 알고리즘 변경, 실제 토크나이저 의존성 추가, 자연어 질문의 서버 측 파싱(NLP/임베딩 — `query`는 AI 클라이언트가 이미 뽑아낸 검색어로만 취급), Web UI 화면, Phase 4의 Vector Search 결합.
+
+---
+
+## 21. 부록 — 작업 중심·계층형 시각화 (BENCHMARK.md 5.7, 2026-08-13)
+
+5.6(§20) 완료 후 P1/P2 순차 진행의 세 번째 항목. 구현 착수 전 사용자가 "나와 같은 생각을 가진 오픈소스가 이미 있지 않겠냐"며 `codex exec` 기반 리서치를 요청했다 — 이번 기능 자체의 설계 검증이 아니라 프로젝트 전반의 포지셔닝(그래프+resolution 명시+evidence+unresolved 격리) 독자성 점검이 목적이었다. 결과는 [docs/research/similar-projects.md](../docs/research/similar-projects.md)에 기록했다: NodeDB-Lab/code2graph(모든 edge에 confidence+provenance)와 Eshu(그래프+MCP+evidence를 HTTP/MCP 동일하게 노출)가 가장 근접하지만, "확정 실패를 낮은 confidence edge로도 만들지 않고 그래프 밖 별도 테이블로 격리한다"는 조합까지 갖춘 사례는 찾지 못했다. 이 리서치는 5.7 자체의 설계를 바꾸지 않았다 — 웹 UI 정보구조 문제라 그래프 데이터 모델 포지셔닝과는 별개였다.
+
+**갭 분석**: BENCHMARK.md 5.7이 요구한 "구조 보기/호출 보기/변경 보기" 세 뷰 중 실제로 없던 건 하나뿐이었다.
+
+| 요구 뷰 | 상태 |
+|---|---|
+| 변경 보기(Git diff 포함 Entity, 영향 후보·검토 경로) | 이미 있었다 — `impact` 탭(ADR-0008)이 정확히 이 목적으로 존재 |
+| 호출 보기(Function/Method, 호출자·피호출자) | 부분적으로 있었다 — 기존 `ImpactGraph`가 CALLS 포함 임의 방향/타입을 그릴 수 있었지만 진입 시 기본값이 `direction=in`/전체 타입이라 매번 수동 조정이 필요했다 |
+| 구조 보기(File/Class/Interface, 온보딩) | 없었다 — 그래프에 들어가려면 먼저 검색으로 Entity 하나를 골라야 했고(`rootId` 필수), File→Class→Method 계층형 드릴다운도 없었다 |
+
+**최종 설계** ([ADR-0013](./docs/adr/0013-task-oriented-views.md)) — core/API/MCP 변경 없이 전부 `packages/web`에서 기존 endpoint(`GET /entities?kind=`, `GET /entities/{id}/relationships?direction=out&types=DECLARES`)만으로 구현했다:
+
+1. **구조 보기**: `StructureTree.tsx` 신규 + `router.ts`의 `Tab`에 `'structure'` 추가 + `ProjectWorkspace.tsx`에 `overview`와 `explore` 사이 탭 배선. File 목록(`GET /entities?kind=file`)을 루트로 두고, 노드를 펼칠 때마다 `GET /entities/{id}/relationships?direction=out&types=DECLARES`로 자식을 지연 로드하는 재귀 `TreeNode`. **3단(File→Class→Method)으로 깊이를 강제하지 않았다** — 분석기(`file-analyzer.ts`)는 중첩 함수도 `containerEntityId`를 통해 DECLARES로 기록하므로(함수가 함수를 선언하는 경우) 실제 깊이가 3단을 넘을 수 있다. `external_module`만 펼침 화살표를 아예 숨긴다(모델상 DECLARES-out을 가질 수 없음 — ADR-0002). 자식 없이 펼치면 "선언된 항목 없음"을 보여준다. 이름 클릭 시 `onSelectEntity`로 탐색 탭으로 이동(기존 경로 재사용). 접근성: `clickableRowProps`(기존 공용 유틸)로 행 자체는 키보드 포커스·Enter/Space 활성화가 되고, 펼침 버튼은 별도 네이티브 `<button aria-expanded>`로 분리해 클릭 버블링(`stopPropagation`)으로 행 클릭과 충돌하지 않게 했다.
+2. **호출 보기**: 새 탭을 만들지 않았다. `ImpactGraph.tsx`에 선택적 `rootKind` prop을 추가해 `initialDirection`/`initialTypes` 헬퍼로 처음 보여줄 방향/타입을 계산한다 — function/method는 `direction=both, types=[CALLS]`, class/interface/file은 `direction=out, types=[DECLARES,EXTENDS,IMPLEMENTS]`. `EntityExplorer.tsx`는 `rootKind={entity.kind}` 한 줄만 추가로 넘긴다. 기존 수동 컨트롤(방향 셀렉트·타입 체크박스·resolution 필터·depth 슬라이더)은 전혀 건드리지 않았다 — 프리셋은 초기값일 뿐 언제든 수동 조정 가능하다.
+   - **구현 중 발견한 실제 버그**: 처음엔 `rootKind`를 `useState`의 lazy initializer에만 반영했는데, `EntityExplorer`가 Entity를 바꿔도 `ImpactGraph`를 다시 마운트하지 않는다는 사실(같은 컴포넌트 인스턴스가 재사용됨)을 놓쳐, 세션에서 두 번째로 고른 Entity부터는 프리셋이 전혀 적용되지 않았다(이전 Entity의 direction/types가 그대로 남음). Playwright로 "같은 explore 세션 안에서 method→class로 전환"을 검증하다가 발견했고, `useEffect(() => { setDirection(...); setTypes(...); }, [props.rootId])`로 rootId가 바뀔 때마다 다시 프리셋을 적용하도록 고쳤다. class/interface/file의 `initialDirection`이 애초에 `'out'`이 아니라 기본값 `'in'`을 반환하던 별개의 로직 버그도 같은 검증 과정에서 함께 발견해 고쳤다.
+3. **변경 보기**: 손대지 않았다 — 기존 `impact` 탭(ADR-0008)이 "Git diff에 포함된 Entity 중심, 영향 후보와 검토 경로 확인"을 그대로 충족한다.
+
+**검증**: `packages/web`은 vitest 기반 컴포넌트 단위 테스트가 없는 영역이라(기존 관례), 이번에도 typecheck+production build+lint 통과 후 실제 API 서버(`samples/demo-project` 전체 분석)와 vite dev 서버를 띄워 Playwright(Chromium, 이 세션에 `npm install --no-save`로 임시 설치 후 검증 완료 시 제거)로 실제 브라우저 검증했다: 구조 탭 진입·URL 라우팅, File 루트 노드 렌더링, 펼침 시 자식 로드 및 `aria-expanded` 토글, 자식 노드 클릭 시 탐색 탭 이동, method 선택 시 CALLS+both 프리셋, class 선택 시 DECLARES/EXTENDS/IMPLEMENTS+out 프리셋, 같은 세션에서 kind를 바꿔가며 여러 Entity를 선택해도 매번 프리셋이 재적용되는지(위 버그의 회귀 검증). 기존 core/api/mcp 전체 스위트(156+71+11=238개)도 회귀 없음을 재확인했다.
+
+**총 변경 파일**: `packages/web/src/router.ts`, `packages/web/src/components/{ProjectWorkspace,ImpactGraph,EntityExplorer}.tsx` 수정 + `StructureTree.tsx` 신규. core/api/mcp/openapi.yaml 변경 없음.
+
+**의도적으로 하지 않은 것** (ADR-0013 "하지 않는 것" 절 그대로): core/API/MCP 변경, `impact` 탭을 그래프로 재구현, 트리 깊이 3단 강제, `computeImpact`/`buildContext`/`getSubgraph` 등 기존 core 함수 수정.

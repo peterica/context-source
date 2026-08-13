@@ -26,20 +26,48 @@ export interface SubgraphState {
   stats: { entityCount: number; relationshipCount: number; maxDepthReached: number };
 }
 
+// ADR-0013(BENCHMARK.md 5.7) "호출 보기" — rootKind에 따라 처음 렌더링될 때 보여줄 방향/타입을
+// 다르게 프리셋한다. function/method는 "호출자·피호출자 탐색"이 목적이므로 CALLS만 양방향으로,
+// class/interface/file은 "구조 이해"가 목적이므로 DECLARES/EXTENDS/IMPLEMENTS를 out 방향으로 연다.
+// 프리셋은 초기값일 뿐이고 아래 툴바에서 언제든 수동으로 바꿀 수 있다 — 새 화면을 만들지 않고
+// 기존 컨트롤 위에 "처음 무엇을 보여줄지"만 얹는다.
+function initialDirection(rootKind: EntityKind | undefined): 'in' | 'out' | 'both' {
+  if (rootKind === 'function' || rootKind === 'method') return 'both';
+  if (rootKind === 'class' || rootKind === 'interface' || rootKind === 'file') return 'out';
+  return 'in';
+}
+function initialTypes(rootKind: EntityKind | undefined): Set<RelationshipType> {
+  if (rootKind === 'function' || rootKind === 'method') return new Set(['CALLS']);
+  if (rootKind === 'class' || rootKind === 'interface' || rootKind === 'file') {
+    return new Set(['DECLARES', 'EXTENDS', 'IMPLEMENTS']);
+  }
+  return new Set(ALL_TYPES);
+}
+
 export function ImpactGraph(props: {
   projectId: string;
   rootId: string;
+  rootKind?: EntityKind;
   onSelectNode: (id: string) => void;
   onSelectEdge: (rel: Relationship, sourceLabel: string, targetLabel: string) => void;
 }) {
-  const [direction, setDirection] = useState<'in' | 'out' | 'both'>('in');
+  const [direction, setDirection] = useState<'in' | 'out' | 'both'>(() => initialDirection(props.rootKind));
   const [depth, setDepth] = useState(2);
-  const [types, setTypes] = useState<Set<RelationshipType>>(new Set(ALL_TYPES));
+  const [types, setTypes] = useState<Set<RelationshipType>>(() => initialTypes(props.rootKind));
   const [resolution, setResolution] = useState<Resolution | ''>('');
   const [data, setData] = useState<SubgraphState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const cyRef = useRef<Core | null>(null);
+
+  // EntityExplorer는 Entity를 바꿔도 ImpactGraph를 다시 마운트하지 않는다(같은 컴포넌트 인스턴스가
+  // 재사용된다) — 그래서 프리셋을 최초 마운트 시점의 useState 초기값으로만 두면 두 번째로 고른
+  // Entity부터는 프리셋이 전혀 적용되지 않는다. rootId가 바뀔 때마다 새로 프리셋을 적용한다.
+  useEffect(() => {
+    setDirection(initialDirection(props.rootKind));
+    setTypes(initialTypes(props.rootKind));
+    // rootKind는 항상 rootId와 함께 바뀌므로(같은 Entity의 kind가 도중에 변하지 않는다) rootId만으로 충분하다.
+  }, [props.rootId]);
 
   useEffect(() => {
     setError(null);

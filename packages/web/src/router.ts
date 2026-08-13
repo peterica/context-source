@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 // react-router 같은 외부 의존성 없이 History API만으로 해결한다 — 이 프로젝트의 다른 화면들도
 // 별도 라이브러리 없이 최소한의 코드로 상태를 관리하는 스타일을 따른다.
 
-export type Tab = 'overview' | 'explore' | 'review' | 'history' | 'impact';
-const TABS: Tab[] = ['overview', 'explore', 'review', 'history', 'impact'];
+export type Tab = 'overview' | 'structure' | 'explore' | 'review' | 'history' | 'impact';
+const TABS: Tab[] = ['overview', 'structure', 'explore', 'review', 'history', 'impact'];
 
 export type Route =
   | { name: 'projects' }

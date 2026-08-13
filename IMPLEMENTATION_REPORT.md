@@ -505,3 +505,25 @@ ADR-0009·0010(5.9, 5.12) 완료로 이 벤치마크 문서가 제안한 P0 항�
 **총 변경 파일**: `packages/web/src/router.ts`, `packages/web/src/components/{ProjectWorkspace,ImpactGraph,EntityExplorer}.tsx` 수정 + `StructureTree.tsx` 신규. core/api/mcp/openapi.yaml 변경 없음.
 
 **의도적으로 하지 않은 것** (ADR-0013 "하지 않는 것" 절 그대로): core/API/MCP 변경, `impact` 탭을 그래프로 재구현, 트리 깊이 3단 강제, `computeImpact`/`buildContext`/`getSubgraph` 등 기존 core 함수 수정.
+
+---
+
+## 22. 부록 — SCIP 호환성 검토 (BENCHMARK.md 5.8, 2026-08-13)
+
+5.7(§21) 완료 후 마지막 P1/P2 항목. 5.7까지와 성격이 다르다 — BENCHMARK.md 5.8은 "검토한다"는 동사로 끝나는 순수 리뷰 항목이고, ADR-0007이 이미 "실제 두 번째 언어 수요가 확정되기 전까지는 플러그인 인터페이스를 만들지 않되, 그때는 SCIP 어댑터 경로를 먼저 검토한다"고 결정해뒀다. 다중 언어 지원 자체가 ROADMAP.md 어디에도 배정돼 있지 않으므로(ADR-0007 재검토 조건 미충족), 이번 항목은 **코드를 전혀 만들지 않고** SCIP을 실제로 채택했을 때 무엇이 자동으로 채워지고 무엇이 안 채워지는지만 미리 확인해 문서로 남기는 작업이다.
+
+**검토 방법**: SCIP 프로토버프 스키마(`Index`/`Document`/`SymbolInformation`/`Occurrence`/`Relationship`)를 직접 확인하고, ContextSource의 Entity/Relationship/Evidence 모델(DATA-MODEL.md) 각 요소와 하나씩 대조했다.
+
+**핵심 발견** ([ADR-0014](./docs/adr/0014-scip-compatibility-review.md) 매핑표 참고):
+
+- **되는 것**: Entity(file/class/interface/function/method) — `Document`/`SymbolInformation.kind`로 충분. `DECLARES`(간접, 심볼 이름의 계층 인코딩에서 파싱 필요) · `IMPORTS`(`Occurrence.symbol_roles`) · `IMPLEMENTS`(`Relationship.is_implementation`)도 된다.
+- **부분적인 것**: `EXTENDS`는 SCIP 스키마에 상속 전용 필드가 없어 인덱서 구현마다 `is_implementation`/`is_type_definition` 재사용 여부가 다를 수 있다 — 실제 인덱서 출력을 확인하지 않고는 신뢰할 수 없다. Evidence도 `Occurrence.range`로 위치는 나오지만 스니펫과 "이유" 문장은 우리가 원본 파일을 다시 읽어 직접 만들어야 한다.
+- **안 되는 것 (가장 중요한 발견)**: **CALLS 관계 전용 필드가 SCIP `Relationship`에 아예 없다**(reference/implementation/type_definition/definition 넷뿐 — 검색으로 직접 확인). `resolution`(static/inferred) 개념도 SCIP에 없고, 더 나아가 "SCIP에서 왔으니 static"으로 일괄 태깅하는 건 실제로 위험하다고 판단했다 — 공식 컴파일러 기반 인덱서와 커뮤니티 tree-sitter 기반 인덱서의 정밀도가 다르기 때문이다. `unresolved_reference`에 대응하는 개념도 없다(`Occurrence.diagnostics`는 컴파일 오류지 "참조는 찾았지만 대상을 확정 못 함"과는 다른 의미).
+
+**결론**: 5.8 원안의 다이어그램("SCIP Importer 하나로 향후 언어를 흡수한다")이 암시하는 것보다 실제로 자동으로 채워지는 부분은 적다. SCIP은 구조적 뼈대(파일·심볼·DECLARES/IMPORTS/IMPLEMENTS)만 공짜로 주고, ContextSource를 ContextSource답게 만드는 부분(CALLS, Evidence, resolution의 정직한 구분, unresolved_reference)은 여전히 언어마다 새로 만들어야 하는 확장 계층으로 남는다. 이 결론은 `docs/research/similar-projects.md`(§21 참고)가 확인한 "SCIP은 범용 relationship/evidence 그래프 제품이 아니라 주로 occurrence→symbol 교환 형식"이라는 관찰과도 일치한다.
+
+**결정**: ADR-0007의 판단(자체 플러그인 인터페이스보다 SCIP 어댑터 경로가 낫다)은 이 검토로 바뀌지 않는다 — 다만 "SCIP을 붙이면 다국어 지원이 거의 끝난다"는 과도한 기대는 갖지 않기로 했다. 실제 두 번째 언어가 확정되는 시점을 위해 이번 매핑표를 남겨두고, `resolution` 태깅 정책(인덱서별로 신뢰도를 다르게 평가해야 한다는 원칙)만 이 ADR에 미리 기록해뒀다 — 구체적 정책 확정은 그 시점으로 미룬다.
+
+**총 변경 파일**: `docs/adr/0014-scip-compatibility-review.md`(신규) + `BENCHMARK.md`(5.8 표시 + 리비전 히스토리) + 이 문서(§22). 코드/테스트 변경 없음 — 이 문서가 다룬 항목 중 처음으로 순수 검토만으로 끝난 사례다.
+
+**의도적으로 하지 않은 것** (ADR-0014 "하지 않는 것" 절 그대로): SCIP importer 코드 작성, 언어 플러그인 인터페이스나 언어 레지스트리 구현, 인덱서별 신뢰도 정책의 지금 확정, ROADMAP.md에 다중 언어 지원 일정 추가.

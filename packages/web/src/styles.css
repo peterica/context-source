@@ -94,6 +94,11 @@ button.btn.secondary {
   border: 1px solid var(--border);
   color: var(--text);
 }
+/* ImpactGraph의 그래프/목록 토글(ADR-0016) — nav.tabs button.active와 같은 선택된 상태 표시. */
+button.btn.secondary.active {
+  border-color: var(--accent);
+  color: var(--accent-badge);
+}
 
 main.layout {
   flex: 1;

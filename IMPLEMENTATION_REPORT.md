@@ -527,6 +527,24 @@ ADR-0009·0010(5.9, 5.12) 완료로 이 벤치마크 문서가 제안한 P0 항�
 
 ---
 
+## 24. 부록 — 접근성 검증 마무리 (BENCHMARK.md 5.20 잔여분, 2026-08-13)
+
+5.16(§23) 완료 후 이 벤치마크 문서가 제안한 마지막 항목. 2026-08-12 접근성 감사가 명시적으로 범위 밖에 남긴 두 가지 중 하나(캔버스 그래프의 키보드 접근성)를 처리했다 — 나머지 하나(스크린리더 실기 테스트)는 이번에도 처리하지 못했지만, 그 이유가 이전과 다르다는 점을 [ADR-0016](./docs/adr/0016-accessibility-followup.md)에 명확히 했다: "설계 과제라 미룬다"가 아니라 **이 세션이 실행되는 헤드리스 CLI 환경에는 실제 GUI 스크린리더(VoiceOver/NVDA)를 구동할 방법이 없다**는 환경적 한계다.
+
+**캔버스 그래프 → 목록 뷰**: `ImpactGraph.tsx`(`EntityExplorer` 안에서 쓰이는 Cytoscape 서브그래프 시각화)에 "그래프 | 목록" 토글을 추가했다. Cytoscape canvas는 픽셀 렌더링이라 스크린리더가 개별 노드를 인식할 표준 방법이 없어 canvas 자체를 고치는 대신, 이미 fetch된 같은 `data.entities`/`data.relationships`를 별도 `SubgraphList` 컴포넌트로 렌더링했다 — **새 API 호출이나 core 변경이 전혀 없다**. 목록의 노드/엣지 행은 기존 `clickableRowProps` 공용 유틸을 그대로 쓰고, 클릭/Enter 시 캔버스가 쓰던 것과 동일한 `onSelectNode`/`onSelectEdge` 콜백을 재사용한다 — 그래프 뷰와 목록 뷰가 서로 다른 동작을 하지 않는다. 그래프 필터 툴바(방향/depth/타입/resolution)는 두 뷰가 공유한다. 토글 버튼에는 `aria-pressed`를, 캔버스 컨테이너는 목록 모드일 때 `display:none`으로 숨기되(재마운트하지 않아 Cytoscape 인스턴스를 불필요하게 재생성하지 않음) 언마운트하지는 않았다.
+
+**axe-core 재검증에서 발견한 실제 회귀**: 2026-08-12 감사 이후 새로 생긴 화면(구조 탭 `StructureTree.tsx`, ADR-0013 / 검토 탭의 사각지대 섹션, ADR-0011)은 그 감사의 대상이 아니었으므로 같은 방법(axe-core WCAG 2 A/AA)으로 다시 검사했다. **구조 탭에서 `nested-interactive`(serious) 위반을 실제로 발견했다** — 각 트리 노드 행 전체가 `clickableRowProps`로 `role="button"`이 걸려 있었는데, 그 안에 펼침/접기용 실제 `<button>`이 중첩돼 있어 "인터랙티브 컨트롤이 인터랙티브 컨트롤 안에 있으면 안 된다"는 규칙을 어겼다. 행 전체가 아니라 **이름 텍스트에만** `clickableRowProps`를 적용하고, 펼침 버튼은 형제 요소로 분리해 고쳤다. 검토 탭(사각지대 섹션 포함)은 위반 없이 통과했다.
+
+**검증**: 실제 API 서버(`samples/demo-project` 전체 분석)와 vite dev 서버를 띄우고, `axe-core`(이 세션에 임시 설치, 검증 완료 후 제거)를 Playwright로 주입해 구조 탭(펼친 상태 포함)·검토 탭·ImpactGraph 그래프 뷰·ImpactGraph 목록 뷰 4개 화면 상태에서 WCAG 2 A/AA 위반 0건을 확인했다. 목록 뷰에서는 자동 검사로 못 잡는 실제 키보드 시나리오도 수동으로 확인했다 — 노드 행에 Tab으로 포커스가 가고 Enter로 엔티티 이동이 되는지, 엣지 행에 Enter를 누르면 Evidence 패널(`.evidence-snippet`)이 실제로 열리는지(둘 다 CALLS 관계가 있는 실제 메서드로 확인).
+
+**총 변경 파일**: `packages/web/src/components/ImpactGraph.tsx`(그래프/목록 토글 + `SubgraphList` 컴포넌트), `packages/web/src/components/StructureTree.tsx`(nested-interactive 수정), `packages/web/src/styles.css`(토글 버튼 active 상태). core/api/mcp 변경 없음. 기존 스위트 240개 회귀 없음, typecheck/lint/production build 모두 통과.
+
+**여전히 미해결**: 스크린리더 실기(VoiceOver/NVDA) 테스트 — 환경적 한계로 이번에도 못 했다. BENCHMARK.md 5.20은 그래서 [해결됨]이 아니라 [부분 해결]로 남긴다. 실제 데스크톱 환경에서 사람이 확인하기 전까지는 이 상태를 유지한다.
+
+**의도적으로 하지 않은 것** (ADR-0016 "하지 않는 것" 절 그대로): Cytoscape canvas 자체를 접근 가능하게 만들려는 시도(ARIA live region으로 캔버스 내용을 흉내내기 등), 스크린리더 실기 테스트를 시뮬레이션이나 휴리스틱으로 "완료"라고 표시, 2026-08-12에 이미 감사·수정된 6개 화면 재작업(회귀 없으면 그대로 둠).
+
+---
+
 ## 22. 부록 — SCIP 호환성 검토 (BENCHMARK.md 5.8, 2026-08-13)
 
 5.7(§21) 완료 후 마지막 P1/P2 항목. 5.7까지와 성격이 다르다 — BENCHMARK.md 5.8은 "검토한다"는 동사로 끝나는 순수 리뷰 항목이고, ADR-0007이 이미 "실제 두 번째 언어 수요가 확정되기 전까지는 플러그인 인터페이스를 만들지 않되, 그때는 SCIP 어댑터 경로를 먼저 검토한다"고 결정해뒀다. 다중 언어 지원 자체가 ROADMAP.md 어디에도 배정돼 있지 않으므로(ADR-0007 재검토 조건 미충족), 이번 항목은 **코드를 전혀 만들지 않고** SCIP을 실제로 채택했을 때 무엇이 자동으로 채워지고 무엇이 안 채워지는지만 미리 확인해 문서로 남기는 작업이다.

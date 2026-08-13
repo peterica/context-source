@@ -41,7 +41,6 @@ function TreeNode(props: { projectId: string; entity: Entity; depth: number; onS
       <div
         className="entity-row"
         style={{ display: 'flex', alignItems: 'center', gap: 6, paddingLeft: 8 + depth * 18 }}
-        {...clickableRowProps(() => props.onSelectEntity(entity.id))}
       >
         {expandable ? (
           <button
@@ -69,7 +68,9 @@ function TreeNode(props: { projectId: string; entity: Entity; depth: number; onS
           <span style={{ width: 16, flexShrink: 0 }} />
         )}
         <span className="badge kind">{ENTITY_KIND_LABEL[entity.kind]}</span>
-        <span className="name">{entity.name}</span>
+        <span className="name" style={{ cursor: 'pointer' }} {...clickableRowProps(() => props.onSelectEntity(entity.id))}>
+          {entity.name}
+        </span>
         {entity.kind !== 'file' && entity.filePath && (
           <span className="path" style={{ marginLeft: 'auto' }}>
             {entity.filePath}

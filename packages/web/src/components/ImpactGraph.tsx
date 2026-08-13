@@ -5,6 +5,8 @@ import dagre from 'cytoscape-dagre';
 import type { Entity, EntityKind, Relationship, RelationshipType, Resolution } from '@contextsource/core';
 import { api, encodeEntityId } from '../api/client.js';
 import { ENTITY_KIND_LABEL } from '../format.js';
+import { RESOLUTION_TOOLTIP } from '../glossary.js';
+import { clickableRowProps } from '../a11y.js';
 
 cytoscape.use(dagre);
 
@@ -57,6 +59,9 @@ export function ImpactGraph(props: {
   const [resolution, setResolution] = useState<Resolution | ''>('');
   const [data, setData] = useState<SubgraphState | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // ADR-0016(BENCHMARK.md 5.20 잔여분) — Cytoscape canvas는 픽셀 렌더링이라 키보드로 노드/엣지를
+  // 순회할 방법이 없다. canvas를 고치는 대신 같은 subgraph 데이터를 목록으로도 보여준다(새 API 호출 없음).
+  const [viewMode, setViewMode] = useState<'graph' | 'list'>('graph');
   const containerRef = useRef<HTMLDivElement | null>(null);
   const cyRef = useRef<Core | null>(null);
 
@@ -202,6 +207,25 @@ export function ImpactGraph(props: {
             {t}
           </label>
         ))}
+        <span style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+          <button
+            type="button"
+            className={viewMode === 'graph' ? 'btn secondary active' : 'btn secondary'}
+            aria-pressed={viewMode === 'graph'}
+            onClick={() => setViewMode('graph')}
+          >
+            그래프
+          </button>
+          <button
+            type="button"
+            className={viewMode === 'list' ? 'btn secondary active' : 'btn secondary'}
+            aria-pressed={viewMode === 'list'}
+            title="Cytoscape 캔버스는 키보드로 순회할 수 없습니다 — 같은 데이터를 목록으로 봅니다."
+            onClick={() => setViewMode('list')}
+          >
+            목록
+          </button>
+        </span>
       </div>
       {error && <div className="empty">{error}</div>}
       {data && (
@@ -239,7 +263,63 @@ export function ImpactGraph(props: {
           </span>
         ))}
       </div>
-      <div className="graph-canvas" ref={containerRef} />
+      <div className="graph-canvas" ref={containerRef} style={{ display: viewMode === 'graph' ? 'block' : 'none' }} />
+      {viewMode === 'list' && data && <SubgraphList data={data} rootId={props.rootId} onSelectNode={props.onSelectNode} onSelectEdge={props.onSelectEdge} />}
+    </div>
+  );
+}
+
+// canvas 대신 같은 subgraph 데이터를 키보드로 순회 가능한 목록으로 보여준다(ADR-0016) — 노드/엣지
+// 클릭 시의 동작은 캔버스와 동일한 콜백을 그대로 재사용해 두 뷰가 서로 다른 동작을 하지 않게 한다.
+function SubgraphList(props: {
+  data: SubgraphState;
+  rootId: string;
+  onSelectNode: (id: string) => void;
+  onSelectEdge: (rel: Relationship, sourceLabel: string, targetLabel: string) => void;
+}) {
+  const entityById = new Map(props.data.entities.map((e) => [e.id, e]));
+
+  return (
+    <div className="split graph-list-view" style={{ marginTop: 6 }}>
+      <div className="panel">
+        <h3 className="section-title">노드 ({props.data.entities.length})</h3>
+        {props.data.entities.map((e) => (
+          <div key={e.id} className="entity-row" {...clickableRowProps(() => props.onSelectNode(e.id))}>
+            <span className="badge kind">{ENTITY_KIND_LABEL[e.kind]}</span>{' '}
+            <span className="name">
+              {e.name}
+              {e.id === props.rootId && ' (root)'}
+            </span>
+            <div className="path">{e.filePath ?? '(external package)'}</div>
+          </div>
+        ))}
+        {props.data.entities.length === 0 && <div className="empty">없음</div>}
+      </div>
+      <div className="panel">
+        <h3 className="section-title">관계 ({props.data.relationships.length})</h3>
+        {props.data.relationships.map((r) => {
+          const source = entityById.get(r.sourceId);
+          const target = entityById.get(r.targetId);
+          return (
+            <div
+              key={r.id}
+              className="entity-row"
+              {...clickableRowProps(() =>
+                props.onSelectEdge(r, source?.name ?? r.sourceId, target?.name ?? r.targetId),
+              )}
+            >
+              <span className="name">
+                {source?.name ?? r.sourceId} → {target?.name ?? r.targetId}
+              </span>{' '}
+              <span className="badge kind">{r.type}</span>{' '}
+              <span className={`badge ${r.resolution}`} title={RESOLUTION_TOOLTIP[r.resolution]}>
+                {r.resolution}
+              </span>
+            </div>
+          );
+        })}
+        {props.data.relationships.length === 0 && <div className="empty">없음</div>}
+      </div>
     </div>
   );
 }

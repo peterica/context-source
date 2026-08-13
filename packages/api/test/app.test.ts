@@ -90,6 +90,34 @@ describe('GET /health', () => {
   });
 });
 
+describe('GET /metrics (ADR-0015, BENCHMARK.md 5.16 잔여분)', () => {
+  it('returns Prometheus text exposition format with aggregate gauges and a request counter', async () => {
+    // 카운터에 이 테스트의 요청 자체가 잡히는지 확인하려면 먼저 파라미터화된 route로 한 번 찔러본다.
+    await getJson('/workspace');
+
+    const res = await fetch(baseUrl.replace('/api/v1', '') + '/metrics');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/plain');
+    const text = await res.text();
+
+    expect(text).toContain('contextsource_up 1');
+    expect(text).toMatch(/contextsource_process_uptime_seconds \d/);
+    expect(text).toContain('contextsource_projects_total 1'); // beforeAll에서 p1 하나만 등록
+    expect(text).toMatch(/contextsource_entities_total [1-9]\d*/); // overload-generic 픽스처는 entity가 있음
+    expect(text).toMatch(/contextsource_relationships_total \d+/);
+    expect(text).toContain(
+      'contextsource_http_requests_total{method="GET",route="/api/v1/workspace",status="200"}',
+    );
+  });
+
+  it('is not gated by the API key middleware (root-level, independent of /api/v1)', async () => {
+    // api-key.test.ts가 /health와 같은 성격을 별도로 검증한다 — 여기서는 이 서버(apiKey 미설정)에서
+    // /metrics가 router보다 앞에서 응답한다는 것만 확인한다.
+    const res = await fetch(baseUrl.replace('/api/v1', '') + '/metrics');
+    expect(res.status).toBe(200);
+  });
+});
+
 describe('GET /workspace', () => {
   it('returns the configured workspace root (UX audit P1-1)', async () => {
     const { status, body } = await getJson('/workspace');

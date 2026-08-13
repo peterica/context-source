@@ -89,6 +89,16 @@ docker compose start api
 
 재분석은 언제든 다시 실행할 수 있으므로(Entity/Relationship은 분석의 산출물), 반드시 지켜야 하는 것은 **프로젝트 레지스트리(등록된 프로젝트 목록·기술 스택 태그)**다 — 이 부분은 재분석으로 복원되지 않는다.
 
+#### 로그·메트릭
+
+`api`/`ui` 모두 요청·에러를 한 줄짜리 JSON으로 stdout/stderr에 남긴다(`{"level":"info","time":"...","msg":"http_request",...}`) — Docker의 기본 로그 드라이버가 그대로 받으므로 `docker compose logs -f api`로 바로 보거나, 원하는 로그 수집기(Loki/CloudWatch/Datadog 등)를 컨테이너 로그 드라이버로 붙이면 된다. 이 프로젝트가 로그 수집기 자체를 운영하지는 않는다([ADR-0015](./docs/adr/0015-logging-and-metrics.md)).
+
+`api`는 `GET /metrics`(버전 접두어 없음, `GET /health`와 같은 위치)에서 Prometheus 텍스트 노출 형식으로 uptime·등록된 프로젝트/Entity/Relationship 총계·HTTP 요청 카운터를 제공한다 — Prometheus나 `curl`로 바로 확인할 수 있다.
+
+```bash
+curl http://localhost:9080/metrics
+```
+
 ### Docker 없이 실행
 
 Node.js **22.5.0 이상**이 필요하다 (내장 `node:sqlite` 모듈, [ADR-0001](./docs/adr/0001-tech-stack.md)).

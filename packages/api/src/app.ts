@@ -39,6 +39,7 @@ import {
 } from '@contextsource/core';
 import { ApiError, toApiError, toErrorBody } from './errors.js';
 import { decodeEntityId, encodeEntityId } from './id-encoding.js';
+import { logError, logInfo } from './logger.js';
 import { requireDirectory, requireFile, resolveWithinWorkspace } from './project-paths.js';
 import {
   parseBoolean,
@@ -91,6 +92,11 @@ function requireApiKey(apiKey: string) {
   };
 }
 
+// ADR-0015(BENCHMARK.md 5.16 잔여분) — Prometheus 텍스트 노출 형식의 라벨 값 이스케이프.
+function escapeMetricLabel(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+}
+
 function asyncHandler(fn: (req: Request, res: Response) => void) {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -137,6 +143,25 @@ export function createApp(ctx: AppContext): Express {
     next();
   });
 
+  // ── 요청 로깅 + 메트릭 카운터 (ADR-0015, BENCHMARK.md 5.16 잔여분) ──────────
+  // app 인스턴스마다 독립된 카운터다(모듈 전역이 아님) — 테스트가 createApp()을 여러 번 호출해도
+  // 서로 다른 앱의 요청 수가 섞이지 않는다. req.route는 매칭된 라우트가 실행된 뒤에만 채워지므로
+  // res.on('finish', ...)에서 읽는다 — 이 시점엔 라우팅이 끝나 있다. req.baseUrl + req.route.path로
+  // 파라미터화된 경로(예: /projects/:projectId/entities/:encodedId)를 만든다 — 원본 URL을 그대로 쓰면
+  // 프로젝트 id·인코딩된 Entity id가 라벨에 그대로 들어가 카디널리티가 무한정 커진다.
+  const requestCounts = new Map<string, number>();
+  app.use((req, res, next) => {
+    const startedAt = process.hrtime.bigint();
+    res.on('finish', () => {
+      const route = `${req.baseUrl}${req.route?.path ?? ''}` || req.path;
+      const durationMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
+      const key = `${req.method} ${route} ${res.statusCode}`;
+      requestCounts.set(key, (requestCounts.get(key) ?? 0) + 1);
+      logInfo('http_request', { method: req.method, route, status: res.statusCode, durationMs: Math.round(durationMs) });
+    });
+    next();
+  });
+
   // ── 헬스체크 (Docker/오케스트레이터용, API 버전과 무관하게 루트에 둔다) ──────
   // docker-compose.yml의 healthcheck가 이 endpoint로 컨테이너 생존/DB 접근 가능 여부를 확인한다
   // (BENCHMARK.md 5.16 — 이전에는 healthcheck 자체가 없었다).
@@ -147,6 +172,39 @@ export function createApp(ctx: AppContext): Express {
     } catch (err) {
       res.status(503).json({ status: 'error', message: err instanceof Error ? err.message : String(err) });
     }
+  });
+
+  // ── 메트릭 (ADR-0015, BENCHMARK.md 5.16 잔여분) ─────────────────────────────
+  // /health와 같은 이유로 버전 없는 최상위에 두고 API key 미들웨어(router 안에만 걸림) 밖에 둔다 —
+  // Prometheus 스크레이퍼가 고정 경로를 기대하는 관례를 따른다. 노출 값은 집계 카운터일 뿐 소스
+  // 코드 내용이 아니라 인증을 걸지 않았다. prom-client 없이 텍스트 노출 형식을 직접 만든다 —
+  // 지금 지표가 6개뿐이라 라이브러리가 주는 이점(레지스트리·히스토그램 버킷)이 필요 없다.
+  app.get('/metrics', (_req, res) => {
+    const summaries = listProjectsWithStats(ctx.db);
+    const entityTotal = summaries.reduce((sum, s) => sum + s.entityCount, 0);
+    const relationshipTotal = summaries.reduce((sum, s) => sum + s.relationshipCount, 0);
+
+    const lines: string[] = [
+      '# TYPE contextsource_up gauge',
+      'contextsource_up 1',
+      '# TYPE contextsource_process_uptime_seconds gauge',
+      `contextsource_process_uptime_seconds ${process.uptime().toFixed(3)}`,
+      '# TYPE contextsource_projects_total gauge',
+      `contextsource_projects_total ${summaries.length}`,
+      '# TYPE contextsource_entities_total gauge',
+      `contextsource_entities_total ${entityTotal}`,
+      '# TYPE contextsource_relationships_total gauge',
+      `contextsource_relationships_total ${relationshipTotal}`,
+      '# TYPE contextsource_http_requests_total counter',
+    ];
+    for (const [key, count] of requestCounts) {
+      const [method, route, status] = key.split(' ');
+      lines.push(
+        `contextsource_http_requests_total{method="${method}",route="${escapeMetricLabel(route!)}",status="${status}"} ${count}`,
+      );
+    }
+    res.set('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
+    res.send(lines.join('\n') + '\n');
   });
 
   const router = express.Router();
@@ -562,8 +620,10 @@ export function createApp(ctx: AppContext): Express {
       res.status(err.status).json(toErrorBody(err));
       return;
     }
-    // eslint-disable-next-line no-console
-    console.error(err);
+    logError('unhandled_error', {
+      message: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+    });
     res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'unexpected server error' } });
   });
 

@@ -474,7 +474,7 @@ ROADMAP.md Phase 3/4는 Vector/임베딩 확장만 다루고 다중 언어 지�
 
 **2026-08-11 수정 완료**: ROADMAP.md Phase 2 예시 문구에 "이는 개념 예시일 뿐 다중 언어 지원이 로드맵에 있다는 뜻이 아니다"라는 명확화 주석을 추가하고, ADR-0007(5.14)의 결정을 함께 인용했다.
 
-### 5.16 P1 — [부분 해결] 배포/운영 성숙도 보강
+### 5.16 P1 — [해결됨] 배포/운영 성숙도 보강
 
 `docker-compose.yml`에 healthcheck, 로그 수집, 메트릭 endpoint가 없었다. SQLite 파일 백업/복구 절차도 문서화되어 있지 않았다. ROADMAP.md는 "SQLite 파일의 쓰기 주체는 api 하나로 제한"이라는 설계를 명시하는데, 이는 의도적이지만 동시에 팀 규모가 커지면 명백한 처리량 상한이 된다.
 
@@ -483,6 +483,8 @@ ROADMAP.md Phase 3/4는 Vector/임베딩 확장만 다루고 다중 언어 지�
 - README.md에 SQLite 백업/복구 절차(`docker compose exec`+`docker cp` 기반)를 추가하고 실제로 백업 파일이 유효한 SQLite 데이터베이스로 생성되는지 확인했다.
 
 **미해결 (범위 밖으로 남김)**: 로그 수집·메트릭 endpoint는 이번에 다루지 않았다 — MVP 단일 사용자 로컬 실행 범위에서는 시급성이 낮다고 판단했다. 실제 팀 규모 배포가 확정되면 재검토한다.
+
+**2026-08-13 해결(잔여분)**: [ADR-0015](./docs/adr/0015-logging-and-metrics.md)로 로그 수집·메트릭 endpoint를 마무리했다 — "실제 팀 규모 배포 확정" 조건은 여전히 충족되지 않아, 풀 옵저버빌리티 스택이 아니라 ADR-0009/0010과 같은 정도로 절제된 범위로 처리했다. 로그 수집기(Loki/CloudWatch 등)를 직접 운영하는 대신 `api`/`ui` 양쪽 출력을 한 줄짜리 JSON으로 구조화해 `docker compose logs`나 원하는 수집기가 바로 소비할 수 있게 했다(`pino` 등 새 의존성 없이 15줄짜리 자체 유틸리티). `GET /metrics`를 `/health`와 같은 위치(버전 없는 최상위, API key 미들웨어 밖)에 Prometheus 텍스트 노출 형식으로 추가했다(`prom-client` 없이 직접 작성) — uptime, 등록된 프로젝트/Entity/Relationship 총계(기존 `listProjectsWithStats` 재사용), 파라미터화된 route 기준 HTTP 요청 카운터(원본 URL을 쓰면 프로젝트/Entity id가 라벨에 그대로 들어가 카디널리티가 무한정 커지므로 회피). 요청 지연시간 히스토그램·분석 실행 성공/실패 카운터·영속 카운터·실제 관측 스택은 여전히 범위 밖으로 남겼다. IMPLEMENTATION_REPORT.md §23 참고.
 
 ### 5.17 P1 — [해결됨] Query 표현력 갭 공식 채택
 
@@ -534,7 +536,7 @@ Web UI(React+Cytoscape.js)에서 키보드 내비게이션, 스크린리더, 색
 
 Sourcegraph의 검색 규모, Copilot의 AI 범용성, Joern의 분석 깊이를 그대로 따라가기보다는 **로컬 TypeScript 프로젝트의 변경 영향을 근거와 함께 설명하는 공통 Context 계층**에 집중하는 것이 가장 선명한 차별화 전략이다.
 
-> **2026-08-11 주석 — 권장 순서와 실제 실행의 괴리**: 실제로는 MVP(1~5에 해당하는 Phase 1) 완료 직후 6·7이 아니라 ROADMAP.md Phase 2 "Project Knowledge Base"(Project Entity·기술 스택 관리·유사 프로젝트 탐색)에 먼저 착수했다 — 이 문서의 P0 항목인 5.1(영향 분석 의미 정의)~5.4(품질 측정 체계)는 그 시점엔 여전히 미착수 상태였다(IMPLEMENTATION_REPORT.md §12~14 참고). 이는 사용자가 명시적으로 Phase 2를 지시했기 때문이며 그 자체로 잘못된 선택은 아니지만, 이 벤치마크 문서가 제안한 우선순위가 실제 의사결정에 그대로 반영되지는 않았다는 사실은 솔직하게 기록해야 한다 — 벤치마크 문서의 실효성을 스스로 점검하는 차원에서 남긴다. **2026-08-12 갱신**: Phase 2 완결과 실제 규모 검증(5.11) 이후 5.1~5.4가 모두 [해결됨]으로 닫혔다(ADR-0008 + 골든 fixture 회귀 하네스, IMPLEMENTATION_REPORT.md §16~17). 이어서 2026-08-11 재검토가 새로 추가한 P0 항목 중 남아있던 5.9(카탈로그 포지셔닝)·5.12(보안 로드맵)도 [해결됨]으로 닫았다(ADR-0009, ADR-0010, IMPLEMENTATION_REPORT.md §18) — 이 문서가 지금까지 제안한 P0 항목(5.1~5.4, 5.9~5.12) 전부가 닫힌 상태다. 남은 미해결 항목은 P1/P2뿐이다(5.5~5.8, 5.16, 5.20). **2026-08-13 갱신**: 5.5(ADR-0011)·5.6(ADR-0012)·5.7(ADR-0013)·5.8(ADR-0014)이 순차로 닫혔다 — 이 문서가 제안한 항목 중 남은 건 5.16(배포/운영 성숙도, 부분 해결)·5.20뿐이다.
+> **2026-08-11 주석 — 권장 순서와 실제 실행의 괴리**: 실제로는 MVP(1~5에 해당하는 Phase 1) 완료 직후 6·7이 아니라 ROADMAP.md Phase 2 "Project Knowledge Base"(Project Entity·기술 스택 관리·유사 프로젝트 탐색)에 먼저 착수했다 — 이 문서의 P0 항목인 5.1(영향 분석 의미 정의)~5.4(품질 측정 체계)는 그 시점엔 여전히 미착수 상태였다(IMPLEMENTATION_REPORT.md §12~14 참고). 이는 사용자가 명시적으로 Phase 2를 지시했기 때문이며 그 자체로 잘못된 선택은 아니지만, 이 벤치마크 문서가 제안한 우선순위가 실제 의사결정에 그대로 반영되지는 않았다는 사실은 솔직하게 기록해야 한다 — 벤치마크 문서의 실효성을 스스로 점검하는 차원에서 남긴다. **2026-08-12 갱신**: Phase 2 완결과 실제 규모 검증(5.11) 이후 5.1~5.4가 모두 [해결됨]으로 닫혔다(ADR-0008 + 골든 fixture 회귀 하네스, IMPLEMENTATION_REPORT.md §16~17). 이어서 2026-08-11 재검토가 새로 추가한 P0 항목 중 남아있던 5.9(카탈로그 포지셔닝)·5.12(보안 로드맵)도 [해결됨]으로 닫았다(ADR-0009, ADR-0010, IMPLEMENTATION_REPORT.md §18) — 이 문서가 지금까지 제안한 P0 항목(5.1~5.4, 5.9~5.12) 전부가 닫힌 상태다. 남은 미해결 항목은 P1/P2뿐이다(5.5~5.8, 5.16, 5.20). **2026-08-13 갱신**: 5.5(ADR-0011)·5.6(ADR-0012)·5.7(ADR-0013)·5.8(ADR-0014)·5.16 잔여분(ADR-0015)이 순차로 닫혔다 — 이 문서가 제안한 항목 중 남은 건 5.20뿐이다.
 
 ---
 
@@ -565,3 +567,4 @@ MVP는 범용 코드 인텔리전스 플랫폼보다 **Evidence 기반 TypeScrip
 | 2026-08-12 | 0.7 | 5.6(Graph-only Context Builder)을 [해결됨]으로 표시 — [ADR-0012](./docs/adr/0012-context-builder.md). 초안(`getSubgraph` 재사용)이 `codex exec` 독립 검토에서 "이유가 실제 발견 경로와 다를 수 있다"는 결함을 지적받아, 다중 seed 동시 시작 양방향 BFS(predecessor 추적)로 재설계했다 — `computeImpact`/`getSubgraph`는 건드리지 않았다. `GET /projects/{id}/context`(API.md 2.11) + MCP tool `build_context`(6번째) 양쪽에 공유 core 함수 하나를 노출, Web UI는 만들지 않음. IMPLEMENTATION_REPORT.md §20 참고 |
 | 2026-08-13 | 0.8 | 구현 착수 전 사용자 요청으로 유사 오픈소스 리서치를 진행([docs/research/similar-projects.md](./docs/research/similar-projects.md), `codex exec --search` + 교차검증) — "정확히 같은 조합(그래프+resolution 명시+evidence+unresolved 격리+MCP+git diff 증분)을 갖춘 프로젝트는 못 찾았다"는 결론. 이어서 5.7(작업 중심·계층형 시각화)을 [해결됨]으로 표시 — [ADR-0013](./docs/adr/0013-task-oriented-views.md). 세 뷰 중 "변경 보기"는 기존 `impact` 탭이, "호출 보기"는 기존 `ImpactGraph`의 Entity 종류별 초기 프리셋이 충족했고, 새로 만든 건 File→DECLARES 지연 확장 트리("구조 보기", `StructureTree.tsx`) 하나뿐이다. core/API/MCP 변경 없음(기존 endpoint 재사용). IMPLEMENTATION_REPORT.md §21 참고 |
 | 2026-08-13 | 0.9 | 5.8(SCIP 호환성 검토)을 [해결됨]으로 표시 — [ADR-0014](./docs/adr/0014-scip-compatibility-review.md). 순수 검토 항목이라 코드 변경은 없다. SCIP 프로토버프 스키마를 Entity/Relationship/Evidence 모델과 직접 대조한 결과, SCIP은 파일·심볼·DECLARES/IMPORTS/IMPLEMENTS 골격만 제공하고 CALLS·Evidence·resolution 구분·unresolved_reference는 언어별로 별도 확장 계층이 계속 필요하다는 결론 — 5.8 원안의 다이어그램이 암시한 것보다 SCIP 채택으로 자동으로 채워지는 부분이 적다. ADR-0007의 결정(자체 플러그인 인터페이스 대신 SCIP 경로를 먼저 검토)은 유지, 다중 언어 지원 자체는 여전히 로드맵에 없어 지금 구현하지 않는다. IMPLEMENTATION_REPORT.md §22 참고 |
+| 2026-08-13 | 1.0 | 5.16 잔여분(로그 수집·메트릭 endpoint)을 마무리해 [해결됨]으로 표시 — [ADR-0015](./docs/adr/0015-logging-and-metrics.md). "팀 규모 배포 확정" 재검토 조건이 여전히 미충족이라 풀 옵저버빌리티 스택 대신 절제된 범위로 처리: `api`/`ui`가 한 줄짜리 JSON 로그를 stdout/stderr에 남기고(새 로깅 의존성 없음), `api`에 `GET /metrics`(Prometheus 텍스트 노출 형식, `prom-client` 없음)를 추가했다 — uptime·프로젝트/Entity/Relationship 총계(기존 함수 재사용)·파라미터화된 route 기준 요청 카운터. core/스키마 변경 없음. 이로써 이 문서가 제안한 항목 중 남은 건 5.20뿐이다. IMPLEMENTATION_REPORT.md §23 참고 |

@@ -508,6 +508,25 @@ ADR-0009·0010(5.9, 5.12) 완료로 이 벤치마크 문서가 제안한 P0 항�
 
 ---
 
+## 23. 부록 — 로그 수집·메트릭 endpoint (BENCHMARK.md 5.16 잔여분, 2026-08-13)
+
+5.16은 2026-08-11에 healthcheck·백업/복구만 먼저 처리하고 "로그 수집·메트릭 endpoint는 MVP 단일 사용자 로컬 실행 범위에서 시급성이 낮다"며 "실제 팀 규모 배포가 확정되면 재검토한다"는 조건과 함께 범위 밖으로 남겨뒀던 항목이다. 그 조건은 지금도 충족되지 않았다(다중 사용자/팀 배포는 여전히 ROADMAP.md 어디에도 없다) — 그래서 [ADR-0015](./docs/adr/0015-logging-and-metrics.md)는 풀 옵저버빌리티 스택을 갖추는 대신, ADR-0009/0010과 같은 정도로 절제된 범위로 이 두 항목만 마무리했다.
+
+**구조화 로깅**: `packages/api/src/logger.ts` 신규 — `logInfo`/`logError` 두 함수가 `{"level":...,"time":...,"msg":...,...fields}` 한 줄짜리 JSON을 stdout/stderr에 쓴다. 실제 로깅 라이브러리(pino 등)를 추가하지 않았다 — 필요한 건 "grep/jq로 파싱 가능한 한 줄"뿐이라 15줄짜리 유틸리티로 충분하다고 판단했다. `app.ts`에 요청 로깅 미들웨어를 추가해 모든 요청을 `{method, route, status, durationMs}`로 남기고, 에러 핸들러의 `console.error`를 `logError`로, `index.ts` 시작 배너의 `console.log`를 `logInfo`로 교체했다. `packages/web/server.mjs`(별도 의존성 없는 standalone 스크립트라 공용 유틸을 import하지 않고 같은 포맷을 인라인)도 요청/시작/프록시에러를 같은 방식으로 구조화했다. Docker의 기본 로그 드라이버가 stdout/stderr를 그대로 남기므로, 사용자가 원하는 수집기(Loki/CloudWatch/Datadog 등)를 컨테이너 로그 드라이버로 붙이기만 하면 된다 — 수집기 자체는 이 프로젝트가 운영하지 않는다.
+
+**메트릭 endpoint**: `GET /metrics`를 `/health`와 같은 위치(버전 없는 최상위, `router`에만 걸리는 API key 미들웨어 밖)에 추가했다. JSON이 아니라 Prometheus 텍스트 노출 형식을 손으로 작성했다(`# TYPE`/`# HELP` 주석 + `metric_name{labels} value`) — "메트릭 endpoint"의 관용적 의미(Prometheus 스크레이핑)를 따르는 게 실제로 더 유용하고, 지표가 6개뿐이라 `prom-client` 같은 라이브러리 없이도 충분했다. 노출 지표: `contextsource_up`, `contextsource_process_uptime_seconds`(`process.uptime()`), `contextsource_projects_total`/`entities_total`/`relationships_total`(기존 `listProjectsWithStats(db)`를 스크레이프 시점에 재호출해 합산 — **새 core 쿼리 없음**), `contextsource_http_requests_total{method,route,status}`(app 인스턴스별로 스코프된 인메모리 `Map` 카운터, 프로세스 재시작 시 초기화됨).
+
+- **route 라벨 카디널리티 처리**: 원본 URL(`req.url`)이 아니라 `req.baseUrl + req.route.path`로 만든 파라미터화 경로(예: `/api/v1/projects/:projectId/entities/:encodedId`)를 라벨로 쓴다 — 프로젝트 id·인코딩된 Entity id가 그대로 라벨에 들어가면 카디널리티가 무한정 커지기 때문이다. `req.route`는 매칭된 라우트가 실행된 뒤에만 채워지므로 `res.on('finish', ...)` 안에서 읽는다.
+- **테스트 격리**: 요청 카운터를 모듈 전역이 아니라 `createApp(ctx)` 호출마다 새로 만드는 클로저 변수로 뒀다 — 테스트가 `createApp()`을 여러 번 호출해도 서로 다른 앱 인스턴스의 요청 수가 섞이지 않는다.
+- `app.test.ts`에 2개 테스트 추가: `/metrics`가 Prometheus 텍스트 형식으로 응답하고 실제 등록된 프로젝트 수(1)·entity/relationship 총계·직전 요청의 카운터 라인을 반영하는지, `/metrics`가 API key 미들웨어보다 앞에서 응답하는지(`/health`와 같은 성격).
+- 실제 API 서버(`samples/demo-project` 전체 분석)와 `ui` 서버를 띄워 `curl /health`, `curl /metrics`, `curl /healthz`로 실측 확인 — 로그 한 줄씩이 의도한 필드 그대로 stdout에 찍히는 것도 확인했다.
+
+**총 테스트**: 신규 2개(app.test.ts) 포함 전체 스위트 240개(core 156 + api 73 + mcp 11) 통과, typecheck/lint/production build 모두 통과.
+
+**의도적으로 하지 않은 것** (ADR-0015 "하지 않는 것" 절 그대로): Loki/Prometheus/Grafana 같은 실제 관측 스택을 docker-compose.yml에 추가, `pino`/`winston`/`prom-client` 등 새 의존성, 요청 지연시간 히스토그램, 분석 실행 성공/실패 카운터, 재시작 후에도 유지되는 영속 카운터, `/metrics`에 API key 인증 적용, `ui` 서비스에 별도 `/metrics` 추가(노출할 만한 지표가 사실상 없음).
+
+---
+
 ## 22. 부록 — SCIP 호환성 검토 (BENCHMARK.md 5.8, 2026-08-13)
 
 5.7(§21) 완료 후 마지막 P1/P2 항목. 5.7까지와 성격이 다르다 — BENCHMARK.md 5.8은 "검토한다"는 동사로 끝나는 순수 리뷰 항목이고, ADR-0007이 이미 "실제 두 번째 언어 수요가 확정되기 전까지는 플러그인 인터페이스를 만들지 않되, 그때는 SCIP 어댑터 경로를 먼저 검토한다"고 결정해뒀다. 다중 언어 지원 자체가 ROADMAP.md 어디에도 배정돼 있지 않으므로(ADR-0007 재검토 조건 미충족), 이번 항목은 **코드를 전혀 만들지 않고** SCIP을 실제로 채택했을 때 무엇이 자동으로 채워지고 무엇이 안 채워지는지만 미리 확인해 문서로 남기는 작업이다.

@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import { openDatabase } from '@contextsource/core';
 import { createApp } from './app.js';
 import { currentRevision } from './git.js';
+import { logInfo } from './logger.js';
 
 const { values } = parseArgs({
   options: {
@@ -31,9 +32,10 @@ const app = createApp({
 
 const port = Number(values.port);
 app.listen(port, () => {
-  // eslint-disable-next-line no-console
-  console.log(
-    `[contextsource-api] listening on http://localhost:${port}/api/v1 (workspace-root=${workspaceRoot}, db=${values.db}, ` +
-      `api-key=${apiKey ? 'enabled' : 'disabled'})`,
-  );
+  logInfo('server_started', {
+    port,
+    workspaceRoot,
+    db: values.db,
+    apiKeyEnabled: Boolean(apiKey),
+  });
 });

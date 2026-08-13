@@ -33,6 +33,9 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    # 요청/에러 로그는 stdout/stderr에 한 줄짜리 JSON으로 나온다 — `docker compose logs -f api`로 바로
+    # 보거나 원하는 로그 드라이버/수집기를 붙인다. GET /metrics(버전 접두어 없음)는 Prometheus 텍스트
+    # 노출 형식을 제공한다 — 이 compose 파일 자체는 Prometheus를 띄우지 않는다(ADR-0015, BENCHMARK.md 5.16).
 
   ui:
     build:

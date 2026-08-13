@@ -19,7 +19,27 @@ const MIME = {
   '.png': 'image/png',
 };
 
+// ADR-0015(BENCHMARK.md 5.16 잔여분) — packages/api/src/logger.ts와 같은 한 줄짜리 JSON 포맷.
+// 이 파일은 별도 의존성 없는 standalone 스크립트라 공용 유틸을 import하지 않고 그대로 인라인한다.
+function logInfo(msg, fields) {
+  process.stdout.write(JSON.stringify({ level: 'info', time: new Date().toISOString(), msg, ...fields }) + '\n');
+}
+function logError(msg, fields) {
+  process.stderr.write(JSON.stringify({ level: 'error', time: new Date().toISOString(), msg, ...fields }) + '\n');
+}
+
 const server = http.createServer((req, res) => {
+  const startedAt = process.hrtime.bigint();
+  res.on('finish', () => {
+    const durationMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
+    logInfo('http_request', {
+      method: req.method,
+      path: req.url,
+      status: res.statusCode,
+      durationMs: Math.round(durationMs),
+    });
+  });
+
   // Docker healthcheck용 — 정적 파일 서버 프로세스가 살아 있는지만 확인한다(BENCHMARK.md 5.16).
   if (req.url === '/healthz') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -38,6 +58,7 @@ const server = http.createServer((req, res) => {
       },
     );
     proxyReq.on('error', (e) => {
+      logError('proxy_error', { message: e.message, path: req.url });
       res.writeHead(502, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: { code: 'BAD_GATEWAY', message: e.message } }));
     });
@@ -75,5 +96,5 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(port, () => {
-  console.log(`[contextsource-ui] listening on :${port}, proxying /api -> ${apiTarget}`);
+  logInfo('server_started', { port, apiTarget });
 });
